@@ -1,10 +1,11 @@
+// קומפוננטת Navbar (סרגל עליון)
 import "./Navbar.css";
-
+import { FaPaw } from "react-icons/fa";
 function Navbar() {
   return (
     <div className="navbar">
-      <div className="logo">
-        PawHome <span className="paw-icon">🐾</span>
+      <div className="logo">House For Paws 
+        <FaPaw className="paw-icon" />
       </div>
 
       <div className="nav-links">

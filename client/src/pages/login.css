@@ -1,271 +1,229 @@
-* {
-  font-family: "Poppins", sans-serif;
-  box-sizing: border-box;
-}
-
-/* PAGE */
+/* 🔥 עוטף את כל הדף */
 .page-wrapper {
-  background: #eeeeee;
   min-height: 100vh;
-  padding: 20px;
+
+  background-image: url("../assets/site-background.png");
+  background-size: cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* MAIN */
+/* 🔥 הקונטיינר המרכזי */
+.page-container {
+  width: 1535px;
+  max-width: 90%;
+  max-height: 867px;
+  height: 95vh;
+  min-height: 867px;
+  background: #ffffff;
+  border-radius: 25px;
+  overflow: hidden;
+
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================ */
+
+/* 🔥 הורדנו 100vh כדי שלא ימתח למסך */
 .login-container {
   display: flex;
-  height: calc(100vh - 120px);
-  border-radius: 30px;
-  overflow: hidden;
-  background: #ffffff;
+  height: 867px; /* במקום calc */
+  max-width: 1700px;
+
+  background-image: url("../assets/login-pets.png");
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
-/* LEFT */
+/* ============================ */
+/* LEFT SIDE */
 .login-left {
   flex: 1;
   position: relative;
-  background: linear-gradient(135deg, #f5e6d3 0%, #f0d5b5 100%);
-  padding: 60px 60px 40px 60px;
+  margin-left: 20px;
+
+  /* 🔥 זה הקסם */
+  background-size: cover; /* ממלא את כל הגובה */
+
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
+
+  border-top-left-radius: 20px;
+  border-bottom-left-radius: 20px;
+
   overflow: hidden;
-  border-radius: 30px 40% 40% 30px / 30px 50% 50% 30px;
-  margin-right: -60px;
-  z-index: 1;
 }
 
-.left-content {
-  position: relative;
-  z-index: 2;
-}
-
-.login-left h1 {
-  font-size: 36px;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin-bottom: 10px;
-}
-
-.login-left h1 span {
-  color: #ff9800;
-}
-
-.login-left p {
-  font-size: 14px;
-  color: #555;
-  max-width: 280px;
-  line-height: 1.5;
-}
-
-/* PAW PRINT DECORATION */
-.login-left .paw-decoration {
-  position: absolute;
-  width: 80px;
-  height: 80px;
-  opacity: 0.15;
-  z-index: 1;
-}
-
-.login-left .paw-decoration.paw-1 {
-  top: 40%;
-  right: 15%;
-  width: 60px;
-  height: 60px;
-}
-
-/* BLOBS */
-.login-left::before {
-  content: "";
-  position: absolute;
-  width: 500px;
-  height: 500px;
-  background: #f4d03f;
-  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-  top: -200px;
-  left: -200px;
-  opacity: 0.3;
-  z-index: 0;
-}
-
-.login-left::after {
-  content: "";
-  position: absolute;
-  width: 400px;
-  height: 400px;
-  background: #f39c12;
-  border-radius: 40% 60% 70% 30% / 40% 50% 50% 60%;
-  bottom: -150px;
-  right: -100px;
-  opacity: 0.25;
-  z-index: 0;
-}
-
-/* IMAGE CONTAINER */
-.image-container {
-  position: relative;
-  z-index: 2;
-  align-self: flex-start;
-  margin-left: -20px;
-}
-
+/* 🔥 לא צריך img יותר אם משתמשים ב-bg */
 .login-left img {
-  width: 90%;
-  max-width: 450px;
-  border-radius: 30px;
-  object-fit: cover;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  display: none;
 }
 
-/* RIGHT */
+/* 🔥 טקסט על התמונה */
+.hero-text {
+  position: absolute;
+  top: 30px;
+  left: 60px;
+
+  z-index: 2; /* מעל התמונה */
+  max-width: 400px;
+}
+
+/* כותרת */
+.hero-text h1 {
+  font-size: 48px;
+  font-weight: 800;
+  color: #2d1b0e; /* חום כהה */
+
+  margin-bottom: px;
+}
+
+/* פאו 🐾 */
+.hero-text .paw {
+  color: #ff9800;
+  font-size: 40px;
+  margin-left: 10px;
+}
+
+/* טקסט מתחת */
+.hero-text p {
+  font-size: 18px;
+  line-height: 1.6;
+  color: #4a3b2a; /* חום בהיר */
+}
+/* blobs */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+}
+
+.blob1 {
+  width: 300px;
+  height: 300px;
+  background: #ffcc80;
+  top: -50px;
+  left: -50px;
+}
+
+.blob2 {
+  width: 250px;
+  height: 250px;
+  background: #ffb74d;
+  bottom: -50px;
+  right: -50px;
+}
+
+/* ============================ */
+/* RIGHT SIDE */
 .login-right {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #fef9f3;
-  padding-left: 60px;
 }
 
 /* CARD */
 .login-card {
-  background: #ffffff;
-  padding: 40px 35px;
+  background: white;
+  padding: 40px;
   border-radius: 20px;
   width: 380px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
 .login-card h2 {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
-  color: #1a1a2e;
-  margin-bottom: 5px;
+  border: none;
+  margin-bottom: 10px;
+  color: black;
 }
 
-.login-card .subtitle {
-  font-size: 13px;
-  color: #888;
-  margin-bottom: 25px;
+.subtitle {
+  color: gray;
+  margin-bottom: 20px;
 }
 
-/* INPUT GROUP */
-.input-group {
+.login-card input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+/* ============================ */
+/* remember + forgot */
+.password-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.remember {
+  gap: 5px;
+  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 10px;
-  padding: 12px 15px;
-  margin-bottom: 15px;
-  background: #fafafa;
-  position: relative;
 }
 
-.input-group svg {
-  color: #aaa;
-  font-size: 18px;
-}
-
-.input-group input {
-  border: none;
-  outline: none;
-  flex: 1;
-  background: transparent;
-  font-size: 14px;
-}
-
-.input-group input::placeholder {
-  color: #aaa;
-}
-
-/* FORGOT */
-.forgot-wrapper {
-  position: relative;
+.remember input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin-bottom: 2px;
 }
 
 .forgot {
-  font-size: 11px;
+  font-size: 13px;
   color: #ff9800;
   cursor: pointer;
-  white-space: nowrap;
 }
 
-/* REMEMBER */
-.remember {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  font-size: 13px;
-  color: #555;
-}
-
-.remember input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: #ff9800;
-  cursor: pointer;
-}
-
+/* ============================ */
 /* BUTTON */
 .login-btn {
   width: 100%;
   padding: 14px;
-  background: #e68900;
+  background: linear-gradient(90deg, #ff9800, #ffb74d);
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   font-weight: 600;
-  font-size: 15px;
   cursor: pointer;
   transition: 0.3s;
 }
 
 .login-btn:hover {
-  background: #d67a00;
-  transform: translateY(-1px);
+  transform: scale(1.03);
+  box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
 }
 
-/* DIVIDER */
+/* ============================ */
+/* divider */
 .divider {
-  display: flex;
-  align-items: center;
-  margin: 20px 0;
-  color: #aaa;
-  font-size: 12px;
+  text-align: center;
+  margin: 15px 0;
+  color: gray;
 }
 
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #e0e0e0;
-}
-
-.divider span {
-  padding: 0 15px;
-}
-
-/* SOCIAL */
+/* socials */
 .socials {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .socials button {
   flex: 1;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #e0e0e0;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
   background: white;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #555;
   transition: 0.2s;
 }
 
@@ -273,20 +231,18 @@
   background: #f5f5f5;
 }
 
-.socials button svg {
-  font-size: 18px;
-}
-
-/* SIGNUP */
+/* signup */
 .signup-text {
-  margin-top: 20px;
+  margin-top: 15px;
   text-align: center;
-  font-size: 13px;
-  color: #666;
 }
 
 .signup-text span {
   color: #ff9800;
   cursor: pointer;
-  font-weight: 500;
+}
+.paw-icon {
+  color: #ff9800;
+  margin-left: 10px;
+  font-size: 50px;
 }

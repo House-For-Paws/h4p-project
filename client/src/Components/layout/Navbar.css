@@ -3,32 +3,43 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 40px;
-  background: white;
-  border-radius: 20px;
-  margin-bottom: 20px;
+  padding: 0 60px;
+  background:   rgb(255, 254, 254);
+  box-shadow:  0 2px 10px rgba(0,0,0,0.05);
 }
 
 .logo {
   font-weight: 700;
-  font-size: 22px;
+  font-size: 26px;
+  color: #272727;
+  display: flex;
+  align-items: center;
 }
 
-.logo .paw-icon {
-  color: #ff9800;
+.logo.paw-icon {
+  color: #ffab03;
+  margin-left: 6px;
+  
+  
 }
 
 .nav-links a {
   margin: 0 15px;
-  color: #333;
+  color: #444;
   cursor: pointer;
+  font-size: 16px;
+}
+
+.nav-links a:hover {
+  color: #ff9800;
 }
 
 .signup-btn {
-  background: #ff9800;
+  background: linear-gradient(90deg, #ff9800, #ffb74d);
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 10px 22px;
   border-radius: 12px;
   cursor: pointer;
+  font-size: 15px;
 }
