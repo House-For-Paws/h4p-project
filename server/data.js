@@ -1,7 +1,9 @@
-let users = []; // מערך משתמשים
-let posts = []; // מערך פוסטים (בהמשך)
+let users = []; // משתמשים
+let posts = []; // פוסטים
+let comments = []; // תגובות ← חדש
 
 module.exports = {
   users,
   posts,
+  comments,
 };

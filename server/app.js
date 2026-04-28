@@ -11,6 +11,17 @@ app.use(express.json()); // מאפשר לקרוא JSON מהבקשות
 // Routes
 const authRoutes = require("./routes/authRoutes"); // מייבא routes
 app.use("/api/auth", authRoutes); // כל בקשה ל /api/auth תגיע ל-authRoutes
+// מייבאים את ה-routes של הפוסטים
+const postRoutes = require("./routes/postRoutes");
+// כל בקשה ל /api/posts תעבור ל-postRoutes
+app.use("/api/posts", postRoutes);
+// מייבא routes של תגובות
+const commentRoutes = require("./routes/commentRoutes");
+// מחבר אותם לשרת
+app.use("/api/comments", commentRoutes);
+
+
+
 
 // בדיקה שהשרת עובד
 app.get("/", (req, res) => {

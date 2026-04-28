@@ -5,7 +5,7 @@ const SECRET = "mysecretkey"; // מפתח ליצירת token
 
 // REGISTER
 exports.register = (req, res) => {
-  const { username, email, password } = req.body; // מקבל נתונים מהבקשה
+  const { username, email, password, phone } = req.body; // מקבל נתונים מהבקשה
 
   const userExists = users.find((u) => u.email === email); // בודק אם קיים
 
@@ -14,11 +14,12 @@ exports.register = (req, res) => {
   }
 
   const newUser = {
-    id: users.length + 1, // id אוטומטי
-    username,
-    email,
-    password,
-  };
+  id: users.length + 1,
+  username,
+  email,
+  password,
+  phone, // ← חדש
+};
 
   users.push(newUser); // שומר במערך
 
