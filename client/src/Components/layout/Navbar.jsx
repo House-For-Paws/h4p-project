@@ -1,22 +1,63 @@
-// קומפוננטת Navbar (סרגל עליון)
 import "./Navbar.css";
 import { FaPaw } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
+
 function Navbar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isLoginPage = location.pathname === "/login";
+  const isRegisterPage = location.pathname === "/register";
+
   return (
     <div className="navbar">
-      <div className="logo">House For Paws 
+      {/* לוגו */}
+      <div className="logo" onClick={() => navigate("/")}>
+        House For Paws
         <FaPaw className="paw-icon" />
       </div>
 
+      {/* קישורים */}
       <div className="nav-links">
-        <a>Home</a>
+        <a onClick={() => navigate("/")}>Home</a>
         <a>Find pets</a>
         <a>About us</a>
-        <a>How it works</a>
-        <a>Contact</a>
+        <a onClick={() => navigate("/how-it-works")}>How it works</a>
+        <a onClick={() => navigate("/contact")}>Contact</a>
       </div>
 
-      <button className="signup-btn">Sign up</button>
+      {/* 🔥 אזור כפתורים */}
+      <div className="auth-buttons">
+        {/* LOGIN PAGE */}
+        {isLoginPage && (
+          <button onClick={() => navigate("/register")} className="signup-btn">
+            Sign up
+          </button>
+        )}
+
+        {/* REGISTER PAGE */}
+        {isRegisterPage && (
+          <button onClick={() => navigate("/login")} className="login-btn">
+            Login
+          </button>
+        )}
+
+        {/* OTHER PAGES */}
+        {!isLoginPage && !isRegisterPage && (
+          <>
+            <button onClick={() => navigate("/login")} className="login-btn">
+              Login
+            </button>
+
+            <button
+              onClick={() => navigate("/register")}
+              className="signup-btn"
+            >
+              Sign up
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

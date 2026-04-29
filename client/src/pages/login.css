@@ -2,22 +2,24 @@
 .page-wrapper {
   min-height: 100vh;
 
-  background-image: url("../assets/site-background.png");
+  
   background-size: cover;
+  
   display: flex;
   justify-content: center;
   align-items: center;
+  
 }
 
 /* 🔥 הקונטיינר המרכזי */
 .page-container {
-  width: 1535px;
-  max-width: 90%;
-  max-height: 867px;
-  height: 95vh;
+  width: 100%;
+  
+  
+  height: 100vh;
   min-height: 867px;
   background: #ffffff;
-  border-radius: 25px;
+  
   overflow: hidden;
 
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
@@ -28,12 +30,15 @@
 /* 🔥 הורדנו 100vh כדי שלא ימתח למסך */
 .login-container {
   display: flex;
-  height: 867px; /* במקום calc */
-  max-width: 1700px;
-
+  height: 100%; /* במקום calc */
+  width: 100%;
+  max-height:100vh;
+  margin: 0 auto;
   background-image: url("../assets/login-pets.png");
   background-position: center;
   background-repeat: no-repeat;
+  background-size: cover;
+  
 }
 
 /* ============================ */
@@ -42,7 +47,7 @@
   flex: 1;
   position: relative;
   margin-left: 20px;
-
+  
   /* 🔥 זה הקסם */
   background-size: cover; /* ממלא את כל הגובה */
 
@@ -63,9 +68,9 @@
 
 /* 🔥 טקסט על התמונה */
 .hero-text {
-  position: absolute;
-  top: 30px;
-  left: 60px;
+  position: relative;
+  top: -300px;
+  
 
   z-index: 2; /* מעל התמונה */
   max-width: 400px;
@@ -76,8 +81,10 @@
   font-size: 48px;
   font-weight: 800;
   color: #2d1b0e; /* חום כהה */
-
-  margin-bottom: px;
+  text-align: center;
+  margin-bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /* פאו 🐾 */
@@ -92,6 +99,8 @@
   font-size: 18px;
   line-height: 1.6;
   color: #4a3b2a; /* חום בהיר */
+  left: 2%;
+  transform: translateX(-25%);
 }
 /* blobs */
 .blob {

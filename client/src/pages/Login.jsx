@@ -32,13 +32,15 @@ function Login() {
   };
 
   return (
+    <>
+    <Navbar />  
     <div className="page-wrapper">
       {/* 🔥 עוטף את כל הדף */}
 
       <div className="page-container">
         {/* 🔥 הקונטיינר המרכזי */}
 
-        <Navbar />
+        
 
         <div className="login-container">
           {/* LEFT */}
@@ -108,6 +110,7 @@ function Login() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
