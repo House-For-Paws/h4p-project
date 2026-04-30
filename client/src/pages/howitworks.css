@@ -1,165 +1,317 @@
-/* ================= CONTAINER ================= */
-.how-container {
+/* ================= PAGE ================= */
+.hiw-page {
   min-height: 100vh;
-  padding: 5px;
-  background: url('../assets/site-background.png');
-  background-size: cover;
-  background-position: center;
+  background: linear-gradient(180deg, #fef9f3 0%, #fff 100%);
+}
+
+/* ================= HERO ================= */
+.hiw-hero {
+  padding: 80px 20px 60px;
   text-align: center;
 }
 
-/* ================= CARD ================= */
-.how-card {
-  background-color: rgba(226, 119, 12, 0.1);
-  padding: 30px;
+.hiw-hero-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.hiw-badge {
+  display: inline-block;
+  background: #fff4e6;
+  color: #e67700;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
   border-radius: 20px;
-  box-shadow: 0px 20px 20px rgba(0,0,0,0.2);
-  margin-bottom: 50px;
-  backdrop-filter: blur(5px);
+  margin-bottom: 16px;
 }
 
-/* ================= HEADER ================= */
-.HIW-paw-icon {
-  font-size: 40px;
-  color: #ff9800;
-}
-
-.how-header h1 {
-  font-size: 42px;
+.hiw-title {
+  font-size: 48px;
+  font-weight: 700;
   color: #2d1b0e;
-  margin-bottom: 10px;
+  margin: 0 0 16px;
+  line-height: 1.1;
 }
 
-.how-header p {
-  color: #555;
-  margin-bottom: 30px;
+.hiw-subtitle {
+  font-size: 18px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ================= MAIN ================= */
+.hiw-main {
+  padding: 0 20px 80px;
+}
+
+.hiw-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
 }
 
 /* ================= CAROUSEL ================= */
-.carousel {
+.hiw-carousel {
   position: relative;
-  width: 90%;
-  max-width: 1200px;
-  height: 600px;
-
-  margin: 0 auto;
-
-  border-radius: 20px;
+  border-radius: 24px;
   overflow: hidden;
-
-  box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
 }
 
-/* image */
-.carousel img {
+.hiw-carousel-inner {
+  position: relative;
+  height: 400px;
+}
+
+.hiw-carousel-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s ease;
 }
 
-/* overlay כהה */
-.carousel-overlay {
-  background: linear-gradient(
-    rgba(0,0,0,0.3),
-    rgba(0,0,0,0.5)
-  );
+.hiw-carousel-image.active {
+  opacity: 1;
 }
 
-/* ================= STEPS OVERLAY ================= */
-.carousel .steps {
+.hiw-carousel-overlay {
   position: absolute;
   inset: 0;
-
-  display: flex;
-  
-  gap: 50px;
-
-  padding: 150px;
-  
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.1) 0%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  pointer-events: none;
 }
 
-/* cards */
-.carousel .step-card {
-  background: rgba(255,255,255,0.65); /* 🔥 פחות אטום */
-  backdrop-filter: blur(12px); /* יותר glass */
-  
-  padding: 20px;
-  border-radius: 15px;
-
-  border: 1px solid rgba(255,255,255,0.3); /* glow עדין */
-
-  transition: 0.3s;
-}
-
-/* hover */
-.carousel .step-card:hover {
-  transform: scale(1.08);
-  
-}
-
-/* icon */
-.icon {
-  font-size: 36px;
-  margin-bottom: 10px;
-}
-
-/* text */
-.step-card h3 {
-  color: #2d1b0e;
-  margin-bottom: 5px;
-}
-
-.step-card p {
-  color: #555;
-}
-
-/* ================= ARROWS ================= */
-.arrow {
+.hiw-carousel-dots {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 2;
+}
 
-  background: rgba(0,0,0,0.4);
-  color: white;
-
-  border: none;
-  font-size: 30px;
-
-  width: 45px;
-  height: 45px;
-
+.hiw-dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-
-  transition: 0.3s;
-  z-index: 3;
+  transition: all 0.3s ease;
 }
 
-.arrow:hover {
-  background: rgba(0,0,0,0.7);
-  transform: translateY(-50%) scale(1.1);
+.hiw-dot:hover {
+  background: rgba(255, 255, 255, 0.8);
 }
 
-.left {
-  left: 10px;
+.hiw-dot.active {
+  background: #fff;
+  transform: scale(1.2);
 }
 
-.right {
-  right: 10px;
+/* ================= STEPS ================= */
+.hiw-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
 }
 
-/* ================= ANIMATION ================= */
-.carousel .step-card {
-  animation: fadeUp 0.6s ease;
+.hiw-step-card {
+  position: relative;
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+  border: 1px solid #f0e6dc;
+  transition: all 0.3s ease;
 }
 
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
+.hiw-step-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 16px 40px rgba(230, 119, 0, 0.12);
+  border-color: #ffd8a8;
+}
+
+.hiw-step-number {
+  position: absolute;
+  top: -12px;
+  left: 24px;
+  background: linear-gradient(135deg, #ff9800, #e67700);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 12px;
+}
+
+.hiw-step-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  background: #fff4e6;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.hiw-step-card:hover .hiw-step-icon {
+  background: linear-gradient(135deg, #ff9800, #e67700);
+}
+
+.hiw-step-icon svg {
+  width: 28px;
+  height: 28px;
+  color: #e67700;
+  transition: color 0.3s ease;
+}
+
+.hiw-step-card:hover .hiw-step-icon svg {
+  color: #fff;
+}
+
+.hiw-step-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d1b0e;
+  margin: 0 0 8px;
+}
+
+.hiw-step-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.hiw-step-connector {
+  display: none;
+}
+
+/* ================= CTA ================= */
+.hiw-cta {
+  background: linear-gradient(135deg, #2d1b0e 0%, #4a2c17 100%);
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.hiw-cta-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.hiw-cta h2 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 16px;
+}
+
+.hiw-cta p {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 32px;
+  line-height: 1.6;
+}
+
+.hiw-cta-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hiw-btn-primary {
+  display: inline-block;
+  background: linear-gradient(135deg, #ff9800, #e67700);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 16px 32px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.hiw-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 152, 0, 0.4);
+}
+
+.hiw-btn-secondary {
+  display: inline-block;
+  background: transparent;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 16px 32px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.hiw-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 900px) {
+  .hiw-steps {
+    grid-template-columns: repeat(2, 1fr);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+}
+
+@media (max-width: 600px) {
+  .hiw-title {
+    font-size: 36px;
+  }
+
+  .hiw-subtitle {
+    font-size: 16px;
+  }
+
+  .hiw-carousel-inner {
+    height: 280px;
+  }
+
+  .hiw-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .hiw-step-card {
+    padding: 28px 20px;
+  }
+
+  .hiw-cta h2 {
+    font-size: 28px;
+  }
+
+  .hiw-cta p {
+    font-size: 16px;
+  }
+
+  .hiw-cta-buttons {
+    flex-direction: column;
+  }
+
+  .hiw-btn-primary,
+  .hiw-btn-secondary {
+    width: 100%;
+    text-align: center;
   }
 }

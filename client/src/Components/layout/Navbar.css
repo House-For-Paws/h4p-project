@@ -34,8 +34,13 @@
 
 /* ================= LINKS ================= */
 .nav-links {
+  position: absolute; /* 🔥 מוציא מה-flow */
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 700px;
   display: flex;
   align-items: center;
+  gap: 20px;
 }
 
 .nav-links a {
@@ -59,14 +64,14 @@
 .auth-buttons {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 30px;
 
   min-width: 200px; /* 🔥 שומר מקום קבוע */
   justify-content: flex-end;
 }
 
 /* signup */
-.signup-btn {
+.auth-signup-btn {
   background: linear-gradient(90deg, #ff9800, #ffb74d);
   color: white;
   border: none;
@@ -74,29 +79,27 @@
   border-radius: 12px;
   cursor: pointer;
   font-size: 15px;
-
   transition: all 0.3s ease;
+  
 }
 
-.signup-btn:hover {
+.auth-signup-btn:hover {
   transform: scale(1.05);
 }
 
 /* login */
-.login-btn {
-  background: transparent;
-  color: #ff9800;
-  border: 1px solid #ff9800;
-
+.auth-login-btn {
+   background: linear-gradient(90deg, #ff9800, #ffb74d);
+  color: white;
+  border: none;
   padding: 10px 22px;
   border-radius: 12px;
   cursor: pointer;
   font-size: 15px;
-
   transition: all 0.3s ease;
 }
 
-.login-btn:hover {
+.auth-login-btn:hover {
   background: #ff9800;
   color: white;
   transform: scale(1.05);

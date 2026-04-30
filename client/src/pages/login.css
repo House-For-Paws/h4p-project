@@ -1,13 +1,12 @@
 /* 🔥 עוטף את כל הדף */
 .page-wrapper {
-  min-height: 100vh;
+  
 
   
   background-size: cover;
   
   display: flex;
-  justify-content: center;
-  align-items: center;
+  
   
 }
 
@@ -16,8 +15,8 @@
   width: 100%;
   
   
-  height: 100vh;
-  min-height: 867px;
+  
+  
   background: #ffffff;
   
   overflow: hidden;
@@ -32,7 +31,7 @@
   display: flex;
   height: 100%; /* במקום calc */
   width: 100%;
-  max-height:100vh;
+ min-height: calc(100vh - 80px);
   margin: 0 auto;
   background-image: url("../assets/login-pets.png");
   background-position: center;
@@ -69,7 +68,7 @@
 /* 🔥 טקסט על התמונה */
 .hero-text {
   position: relative;
-  top: -300px;
+  top: -350px;
   
 
   z-index: 2; /* מעל התמונה */
@@ -162,6 +161,12 @@
   margin-bottom: 15px;
   border-radius: 10px;
   border: 1px solid #ddd;
+  outline: none;
+}
+
+input:focus {
+  border: 1px solid #ff9800;
+  outline: none;
 }
 
 /* ============================ */
@@ -202,9 +207,10 @@
   color: white;
   border: none;
   border-radius: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: 0.3s;
+  font-size: 16px;
 }
 
 .login-btn:hover {

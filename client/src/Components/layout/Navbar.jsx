@@ -19,9 +19,8 @@ function Navbar() {
 
       {/* קישורים */}
       <div className="nav-links">
-        <a onClick={() => navigate("/")}>Home</a>
-        <a>Find pets</a>
-        <a>About us</a>
+        <a onClick={() => navigate("/")}>Find pets</a>
+        <a onClick={() => navigate("/about")}>About us</a>
         <a onClick={() => navigate("/how-it-works")}>How it works</a>
         <a onClick={() => navigate("/contact")}>Contact</a>
       </div>
@@ -30,28 +29,28 @@ function Navbar() {
       <div className="auth-buttons">
         {/* LOGIN PAGE */}
         {isLoginPage && (
-          <button onClick={() => navigate("/register")} className="signup-btn">
+          <button onClick={() => navigate("/register")} className="auth-signup-btn">
             Sign up
           </button>
         )}
 
         {/* REGISTER PAGE */}
         {isRegisterPage && (
-          <button onClick={() => navigate("/login")} className="login-btn">
-            Login
+          <button onClick={() => navigate("/login")} className="auth-login-btn">
+              Login
           </button>
         )}
 
         {/* OTHER PAGES */}
         {!isLoginPage && !isRegisterPage && (
           <>
-            <button onClick={() => navigate("/login")} className="login-btn">
+            <button onClick={() => navigate("/login")} className="auth-login-btn">
               Login
             </button>
 
             <button
               onClick={() => navigate("/register")}
-              className="signup-btn"
+              className="auth-signup-btn"
             >
               Sign up
             </button>

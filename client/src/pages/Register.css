@@ -1,12 +1,12 @@
 /* page */
 .register-container {
-  min-height: 100vh;
+  min-height: calc(100vh - 80px);
   background: url("../assets/site-background.png") no-repeat center center;
   background-size: cover;
-  
   display: flex;
   justify-content: center;
   align-items: center;
+
 }
 
 .paw-icon {
@@ -92,3 +92,5 @@
   font-size: 13px;
   color: #ff9800;
 }
+
+
