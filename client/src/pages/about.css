@@ -489,10 +489,7 @@
     flex-direction: column;
   }
   
-  .footer-content {
-    flex-direction: column;
-    gap: 40px;
-  }
+ 
   
  
 }

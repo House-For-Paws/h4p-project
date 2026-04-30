@@ -1,7 +1,7 @@
 /* ================= PAGE ================= */
 .hiw-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #fef9f3 0%, #fff 100%);
+  background:url('/src/assets/site-background.png') no-repeat center center/cover;
 }
 
 /* ================= HERO ================= */
@@ -203,9 +203,11 @@
 
 /* ================= CTA ================= */
 .hiw-cta {
-  background: linear-gradient(135deg, #2d1b0e 0%, #4a2c17 100%);
+  background-color: rgba(169, 97, 46, 0.7);
+  backdrop-filter: blur(10px);
   padding: 80px 20px;
   text-align: center;
+  box-shadow: 20px 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .hiw-cta-content {

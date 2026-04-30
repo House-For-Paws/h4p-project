@@ -184,10 +184,7 @@ function About() {
           <div className="team-grid">
             <div className="team-card">
               <div className="team-image">
-                <img
-                  src="https://randomuser.me/api/portraits/men/32.jpg"
-                  alt="David"
-                />
+                <img src="../../src/assets/CEO-pic.jpg" alt="David" />
                 <div className="team-socials">
                   <a href="#" aria-label="Twitter">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -204,19 +201,16 @@ function About() {
                 </div>
               </div>
               <div className="team-info">
-                <h4>David Martinez</h4>
+                <h4>Amit Nosyav</h4>
                 <p className="team-role">Founder & CEO</p>
                 <p className="team-bio">
-                  Started PetAdopt after rescuing his first dog, Max.
+                  Started House For Paws after rescuing his first cat, Mia.
                 </p>
               </div>
             </div>
             <div className="team-card">
               <div className="team-image">
-                <img
-                  src="https://randomuser.me/api/portraits/women/44.jpg"
-                  alt="Sara"
-                />
+                <img src="../../src/assets/San-pic.png" alt="Sara" />
                 <div className="team-socials">
                   <a href="#" aria-label="Twitter">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -233,7 +227,7 @@ function About() {
                 </div>
               </div>
               <div className="team-info">
-                <h4>Sara Johnson</h4>
+                <h4>Sandra Isakov</h4>
                 <p className="team-role">Adoption Coordinator</p>
                 <p className="team-bio">
                   Matches families with their perfect furry companions.
@@ -300,10 +294,8 @@ function About() {
             </div>
           </div>
         </section>
-
-      
+        <Footer />
       </div>
-      <Footer />
     </>
   );
 }

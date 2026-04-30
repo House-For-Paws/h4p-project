@@ -55,100 +55,100 @@ export default function HowItWorks() {
 
   return (
     <>
-    <Navbar />
-    <div className="hiw-page">
-      {/* Hero Section */}
-      <section className="hiw-hero">
-        <div className="hiw-hero-content">
-          <span className="hiw-badge">Simple Process</span>
-          <h1 className="hiw-title">How It Works</h1>
-          <p className="hiw-subtitle">
-            Helping pets find loving homes in just a few simple steps
-          </p>
-        </div>
-      </section>
-
-      {/* Main Content */}
-      <section className="hiw-main">
-        <div className="hiw-container">
-          {/* Carousel */}
-          <div className="hiw-carousel">
-            <div className="hiw-carousel-inner">
-              {images.map((img, idx) => (
-                <img
-                  key={idx}
-                  src={img}
-                  alt={`Pet ${idx + 1}`}
-                  className={`hiw-carousel-image ${idx === currentImage ? "active" : ""}`}
-                />
-              ))}
-              <div className="hiw-carousel-overlay" />
-            </div>
-
-            {/* Dots */}
-            <div className="hiw-carousel-dots">
-              {images.map((_, idx) => (
-                <button
-                  key={idx}
-                  className={`hiw-dot ${idx === currentImage ? "active" : ""}`}
-                  onClick={() => goToImage(idx)}
-                  aria-label={`Go to image ${idx + 1}`}
-                />
-              ))}
-            </div>
+      <Navbar />
+      <div className="hiw-page">
+        {/* Hero Section */}
+        <section className="hiw-hero">
+          <div className="hiw-hero-content">
+            <span className="hiw-badge">Simple Process</span>
+            <h1 className="hiw-title">How It Works</h1>
+            <p className="hiw-subtitle">
+              Helping pets find loving homes in just a few simple steps
+            </p>
           </div>
+        </section>
 
-          {/* Steps */}
-          <div className="hiw-steps">
-            {steps.map((step, idx) => (
-              <div
-                key={idx}
-                className={`hiw-step-card ${activeStep === idx ? "active" : ""}`}
-                onMouseEnter={() => setActiveStep(idx)}
-                onMouseLeave={() => setActiveStep(null)}
-              >
-                <div className="hiw-step-number">{step.number}</div>
-                <div className="hiw-step-icon">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d={step.icon} />
-                  </svg>
-                </div>
-                <h3 className="hiw-step-title">{step.title}</h3>
-                <p className="hiw-step-description">{step.description}</p>
-                <div className="hiw-step-connector" />
+        {/* Main Content */}
+        <section className="hiw-main">
+          <div className="hiw-container">
+            {/* Carousel */}
+            <div className="hiw-carousel">
+              <div className="hiw-carousel-inner">
+                {images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={`Pet ${idx + 1}`}
+                    className={`hiw-carousel-image ${idx === currentImage ? "active" : ""}`}
+                  />
+                ))}
+                <div className="hiw-carousel-overlay" />
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="hiw-cta">
-        <div className="hiw-cta-content">
-          <h2>Ready to Get Started?</h2>
-          <p>
-            Join thousands of happy pet owners and help animals find their
-            forever homes.
-          </p>
-          <div className="hiw-cta-buttons">
-            <a href="/pets" className="hiw-btn-primary">
-              Browse Pets
-            </a>
-            <a href="/contact" className="hiw-btn-secondary">
-              Contact Us
-            </a>
+              {/* Dots */}
+              <div className="hiw-carousel-dots">
+                {images.map((_, idx) => (
+                  <button
+                    key={idx}
+                    className={`hiw-dot ${idx === currentImage ? "active" : ""}`}
+                    onClick={() => goToImage(idx)}
+                    aria-label={`Go to image ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Steps */}
+            <div className="hiw-steps">
+              {steps.map((step, idx) => (
+                <div
+                  key={idx}
+                  className={`hiw-step-card ${activeStep === idx ? "active" : ""}`}
+                  onMouseEnter={() => setActiveStep(idx)}
+                  onMouseLeave={() => setActiveStep(null)}
+                >
+                  <div className="hiw-step-number">{step.number}</div>
+                  <div className="hiw-step-icon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d={step.icon} />
+                    </svg>
+                  </div>
+                  <h3 className="hiw-step-title">{step.title}</h3>
+                  <p className="hiw-step-description">{step.description}</p>
+                  <div className="hiw-step-connector" />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
-    </div>
-    <Footer />
+        </section>
+
+        {/* CTA Section */}
+        <section className="hiw-cta">
+          <div className="hiw-cta-content">
+            <h2>Ready to Get Started?</h2>
+            <p>
+              Join thousands of happy pet owners and help animals find their
+              forever homes.
+            </p>
+            <div className="hiw-cta-buttons">
+              <a href="/pets" className="hiw-btn-primary">
+                Browse Pets
+              </a>
+              <a href="/contact" className="hiw-btn-secondary">
+                Contact Us
+              </a>
+            </div>
+          </div>
+        </section>
+        <Footer />
+      </div>
     </>
   );
 }
