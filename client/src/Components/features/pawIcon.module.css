@@ -1,0 +1,24 @@
+.logoCircle {
+  width: 60px;
+  height: 60px;
+  background: #d9822b; /* אותו כתום */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 60px;
+}
+
+.logoIcon {
+  width: 30px;
+  height: 30px;
+  stroke: white;
+  stroke-width: 2;
+  fill: white;
+}
+
+.logoIcon line {
+  stroke: white;
+  stroke-width: 2;
+  fill: none;
+}

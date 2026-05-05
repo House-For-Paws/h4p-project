@@ -1,5 +1,5 @@
-import "./Navbar.css";
-import { FaPaw } from "react-icons/fa";
+import styles from "../../styles/navbar.module.css";
+import PawIcon from "../features/PawIcon";
 import { useNavigate, useLocation } from "react-router-dom";
 
 function Navbar() {
@@ -10,15 +10,15 @@ function Navbar() {
   const isRegisterPage = location.pathname === "/register";
 
   return (
-    <div className="navbar">
+    <div className={styles.navbar}>
       {/* לוגו */}
-      <div className="logo" onClick={() => navigate("/")}>
+      <div className={styles.logo} onClick={() => navigate("/")}>
+        <PawIcon size={24} />
         House For Paws
-        <FaPaw className="paw-icon" />
       </div>
 
       {/* קישורים */}
-      <div className="nav-links">
+      <div className={styles.navLinks}>
         <a onClick={() => navigate("/")}>Find pets</a>
         <a onClick={() => navigate("/about")}>About us</a>
         <a onClick={() => navigate("/how-it-works")}>How it works</a>
@@ -26,31 +26,40 @@ function Navbar() {
       </div>
 
       {/* 🔥 אזור כפתורים */}
-      <div className="auth-buttons">
+      <div className={styles.authButtons}>
         {/* LOGIN PAGE */}
         {isLoginPage && (
-          <button onClick={() => navigate("/register")} className="auth-signup-btn">
+          <button
+            onClick={() => navigate("/register")}
+            className={styles.authSignupBtn}
+          >
             Sign up
           </button>
         )}
 
         {/* REGISTER PAGE */}
         {isRegisterPage && (
-          <button onClick={() => navigate("/login")} className="auth-login-btn">
-              Login
+          <button
+            onClick={() => navigate("/login")}
+            className={styles.authLoginBtn}
+          >
+            Login
           </button>
         )}
 
         {/* OTHER PAGES */}
         {!isLoginPage && !isRegisterPage && (
           <>
-            <button onClick={() => navigate("/login")} className="auth-login-btn">
+            <button
+              onClick={() => navigate("/login")}
+              className={styles.authLoginBtn}
+            >
               Login
             </button>
 
             <button
               onClick={() => navigate("/register")}
-              className="auth-signup-btn"
+              className={styles.authSignupBtn}
             >
               Sign up
             </button>

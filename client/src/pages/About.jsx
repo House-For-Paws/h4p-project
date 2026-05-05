@@ -1,74 +1,74 @@
 import Navbar from "../Components/layout/Navbar";
-import "./about.css";
+import styles from "../styles/about.module.css";
 import Footer from "../Components/layout/Footer";
 
 function About() {
   return (
     <>
       <Navbar />
-      <div className="about-page">
+      <div className={styles.aboutPage}>
         {/* Hero Section */}
-        <section className="about-hero">
-          <div className="hero-content">
-            <span className="hero-badge">About Us</span>
-            <h1 className="hero-title">
+        <section className={styles.aboutHero}>
+          <div className={styles.heroContent}>
+            <span className={styles.heroBadge}>About Us</span>
+            <h1 className={styles.heroTitle}>
               Every Pet Deserves a{" "}
-              <span className="highlight">Loving Home</span>
+              <span className={styles.highlight}>Loving Home</span>
             </h1>
-            <p className="hero-subtitle">
+            <p className={styles.heroSubtitle}>
               We connect compassionate people with pets in need, creating bonds
               that last a lifetime. Our mission is simple: no pet left behind.
             </p>
-            <div className="hero-stats-inline">
-              <div className="stat-item">
-                <span className="stat-number">1,200+</span>
-                <span className="stat-label">Pets Adopted</span>
+            <div className={styles.heroStatsInline}>
+              <div className={styles.statItem}>
+                <span className={styles.statNumber}>1,200+</span>
+                <span className={styles.statLabel}>Pets Adopted</span>
               </div>
-              <div className="stat-divider"></div>
-              <div className="stat-item">
-                <span className="stat-number">800+</span>
-                <span className="stat-label">Happy Families</span>
+              <div className={styles.statDivider}></div>
+              <div className={styles.statItem}>
+                <span className={styles.statNumber}>800+</span>
+                <span className={styles.statLabel}>Happy Families</span>
               </div>
-              <div className="stat-divider"></div>
-              <div className="stat-item">
-                <span className="stat-number">150+</span>
-                <span className="stat-label">Volunteers</span>
+              <div className={styles.statDivider}></div>
+              <div className={styles.statItem}>
+                <span className={styles.statNumber}>150+</span>
+                <span className={styles.statLabel}>Volunteers</span>
               </div>
             </div>
           </div>
-          <div className="hero-image-wrapper">
-            <div className="hero-image-card">
+          <div className={styles.heroImageWrapper}>
+            <div className={styles.heroImageCard}>
               <img
                 src="https://images.unsplash.com/photo-1601758125946-6ec2ef64daf8?w=600&h=700&fit=crop"
                 alt="Happy pets waiting for adoption"
               />
-              <div className="image-badge">
-                <span className="badge-icon">❤️</span>
+              <div className={styles.imageBadge}>
+                <span className={styles.badgeIcon}>❤️</span>
                 <span>Waiting for you</span>
               </div>
             </div>
-            <div className="floating-card card-1">
-              <span className="card-emoji">🐕</span>
-              <span className="card-text">Dogs</span>
-              <span className="card-count">450+</span>
+            <div className={styles.floatingCard + ' ' + styles.card1}>
+              <span className={styles.cardEmoji}>🐕</span>
+              <span className={styles.cardText}>Dogs</span>
+              <span className={styles.cardCount}>450+</span>
             </div>
-            <div className="floating-card card-2">
-              <span className="card-emoji">🐈</span>
-              <span className="card-text">Cats</span>
-              <span className="card-count">380+</span>
+            <div className={styles.floatingCard + ' ' + styles.card2}>
+              <span className={styles.cardEmoji}>🐈</span>
+              <span className={styles.cardText}>Cats</span>
+              <span className={styles.cardCount}>380+</span>
             </div>
           </div>
         </section>
 
         {/* Mission Section */}
-        <section className="about-mission">
-          <div className="mission-header">
-            <span className="section-badge">Our Mission</span>
-            <h2 className="section-title">Why We Do What We Do</h2>
+        <section className={styles.aboutMission}>
+          <div className={styles.missionHeader}>
+            <span className={styles.sectionBadge}>Our Mission</span>
+            <h2 className={styles.sectionTitle}>Why We Do What We Do</h2>
           </div>
-          <div className="mission-grid">
-            <div className="mission-card">
-              <div className="mission-icon">
+          <div className={styles.missionGrid}>
+            <div className={styles.missionCard}>
+              <div className={styles.missionIcon}>
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -84,8 +84,8 @@ function About() {
                 difficult situations and give them a second chance at happiness.
               </p>
             </div>
-            <div className="mission-card">
-              <div className="mission-icon">
+            <div className={styles.missionCard}>
+              <div className={styles.missionIcon}>
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -105,8 +105,8 @@ function About() {
                 compatibility.
               </p>
             </div>
-            <div className="mission-card">
-              <div className="mission-icon">
+            <div className={styles.missionCard}>
+              <div className={styles.missionIcon}>
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -126,45 +126,45 @@ function About() {
         </section>
 
         {/* Story Section */}
-        <section className="about-story">
-          <div className="story-image">
+        <section className={styles.aboutStory}>
+          <div className={styles.storyImage}>
             <img
               src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=500&fit=crop"
               alt="Our team helping pets"
             />
-            <div className="story-badge">Since 2018</div>
+            <div className={styles.storyBadge}>Since 2018</div>
           </div>
-          <div className="story-content">
-            <span className="section-badge">Our Story</span>
-            <h2 className="section-title">
+          <div className={styles.storyContent}>
+            <span className={styles.sectionBadge}>Our Story</span>
+            <h2 className={styles.sectionTitle}>
               From a Small Idea to a Big Movement
             </h2>
-            <p className="story-text">
+            <p className={styles.storyText}>
               What started as a weekend volunteer project has grown into a
               thriving community of pet lovers, dedicated volunteers, and happy
               families. We believe that every animal deserves love, care, and a
               safe place to call home.
             </p>
-            <p className="story-text">
+            <p className={styles.storyText}>
               Today, we work with over 50 partner shelters, have a network of
               150+ active volunteers, and have successfully placed more than
               1,200 pets in loving homes.
             </p>
-            <div className="story-features">
-              <div className="feature-item">
-                <span className="feature-check">✓</span>
+            <div className={styles.storyFeatures}>
+              <div className={styles.featureItem}>
+                <span className={styles.featureCheck}>✓</span>
                 <span>Verified shelters only</span>
               </div>
-              <div className="feature-item">
-                <span className="feature-check">✓</span>
+              <div className={styles.featureItem}>
+                <span className={styles.featureCheck}>✓</span>
                 <span>Full health screening</span>
               </div>
-              <div className="feature-item">
-                <span className="feature-check">✓</span>
+              <div className={styles.featureItem}>
+                <span className={styles.featureCheck}>✓</span>
                 <span>Post-adoption support</span>
               </div>
-              <div className="feature-item">
-                <span className="feature-check">✓</span>
+              <div className={styles.featureItem}>
+                <span className={styles.featureCheck}>✓</span>
                 <span>Community events</span>
               </div>
             </div>
@@ -172,20 +172,20 @@ function About() {
         </section>
 
         {/* Team Section */}
-        <section className="about-team">
-          <div className="team-header">
-            <span className="section-badge">Our Team</span>
-            <h2 className="section-title">Meet the People Behind PetAdopt</h2>
-            <p className="team-subtitle">
+        <section className={styles.aboutTeam}>
+          <div className={styles.teamHeader}>
+            <span className={styles.sectionBadge}>Our Team</span>
+            <h2 className={styles.sectionTitle}>Meet the People Behind PetAdopt</h2>
+            <p className={styles.teamSubtitle}>
               Passionate individuals dedicated to making a difference in the
               lives of pets and people alike.
             </p>
           </div>
-          <div className="team-grid">
-            <div className="team-card">
-              <div className="team-image">
+          <div className={styles.teamGrid}>
+            <div className={styles.teamCard}>
+              <div className={styles.teamImage}>
                 <img src="../../src/assets/CEO-pic.jpg" alt="David" />
-                <div className="team-socials">
+                <div className={styles.teamSocials}>
                   <a href="#" aria-label="Twitter">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
@@ -200,18 +200,18 @@ function About() {
                   </a>
                 </div>
               </div>
-              <div className="team-info">
+              <div className={styles.teamInfo}>
                 <h4>Amit Nosyav</h4>
-                <p className="team-role">Founder & CEO</p>
-                <p className="team-bio">
+                <p className={styles.teamRole}>Founder & CEO</p>
+                <p className={styles.teamBio}>
                   Started House For Paws after rescuing his first cat, Mia.
                 </p>
               </div>
             </div>
-            <div className="team-card">
-              <div className="team-image">
+            <div className={styles.teamCard}>
+              <div className={styles.teamImage}>
                 <img src="../../src/assets/San-pic.png" alt="Sara" />
-                <div className="team-socials">
+                <div className={styles.teamSocials}>
                   <a href="#" aria-label="Twitter">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
@@ -226,21 +226,21 @@ function About() {
                   </a>
                 </div>
               </div>
-              <div className="team-info">
+              <div className={styles.teamInfo}>
                 <h4>Sandra Isakov</h4>
-                <p className="team-role">Adoption Coordinator</p>
-                <p className="team-bio">
+                <p className={styles.teamRole}>Adoption Coordinator</p>
+                <p className={styles.teamBio}>
                   Matches families with their perfect furry companions.
                 </p>
               </div>
             </div>
-            <div className="team-card">
-              <div className="team-image">
+            <div className={styles.teamCard}>
+              <div className={styles.teamImage}>
                 <img
                   src="https://randomuser.me/api/portraits/men/50.jpg"
                   alt="Daniel"
                 />
-                <div className="team-socials">
+                <div className={styles.teamSocials}>
                   <a href="#" aria-label="Twitter">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
@@ -255,21 +255,21 @@ function About() {
                   </a>
                 </div>
               </div>
-              <div className="team-info">
+              <div className={styles.teamInfo}>
                 <h4>Daniel Chen</h4>
-                <p className="team-role">Volunteer Lead</p>
-                <p className="team-bio">
+                <p className={styles.teamRole}>Volunteer Lead</p>
+                <p className={styles.teamBio}>
                   Coordinates our amazing community of volunteers.
                 </p>
               </div>
             </div>
-            <div className="team-card">
-              <div className="team-image">
+            <div className={styles.teamCard}>
+              <div className={styles.teamImage}>
                 <img
                   src="https://randomuser.me/api/portraits/women/68.jpg"
                   alt="Emma"
                 />
-                <div className="team-socials">
+                <div className={styles.teamSocials}>
                   <a href="#" aria-label="Twitter">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
@@ -284,10 +284,10 @@ function About() {
                   </a>
                 </div>
               </div>
-              <div className="team-info">
+              <div className={styles.teamInfo}>
                 <h4>Emma Wilson</h4>
-                <p className="team-role">Veterinary Advisor</p>
-                <p className="team-bio">
+                <p className={styles.teamRole}>Veterinary Advisor</p>
+                <p className={styles.teamBio}>
                   Ensures all pets are healthy before adoption.
                 </p>
               </div>

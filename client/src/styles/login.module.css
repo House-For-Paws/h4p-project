@@ -1,35 +1,21 @@
 /* 🔥 עוטף את כל הדף */
-.page-wrapper {
-  
-
-  
+.pageWrapper {
   background-size: cover;
-  
   display: flex;
-  
-  
 }
 
 /* 🔥 הקונטיינר המרכזי */
-.page-container {
+.pageContainer {
   width: 100%;
-  
-  
-  
-  
   background: #ffffff;
-  
   overflow: hidden;
-
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
 }
 
-/* ============================ */
 
-/* 🔥 הורדנו 100vh כדי שלא ימתח למסך */
-.login-container {
+.loginContainer {
   display: flex;
-  height: 100%; /* במקום calc */
+  height: 100%;
   width: 100%;
  min-height: calc(100vh - 80px);
   margin: 0 auto;
@@ -42,31 +28,26 @@
 
 /* ============================ */
 /* LEFT SIDE */
-.login-left {
+.loginLeft {
   flex: 1;
   position: relative;
   margin-left: 20px;
-  
-  /* 🔥 זה הקסם */
-  background-size: cover; /* ממלא את כל הגובה */
-
+  background-size: cover;
   display: flex;
   justify-content: center;
   align-items: center;
-
   border-top-left-radius: 20px;
   border-bottom-left-radius: 20px;
-
   overflow: hidden;
 }
 
-/* 🔥 לא צריך img יותר אם משתמשים ב-bg */
-.login-left img {
+
+.loginLeft img {
   display: none;
 }
 
 /* 🔥 טקסט על התמונה */
-.hero-text {
+.heroText {
   position: relative;
   top: -350px;
   
@@ -76,7 +57,7 @@
 }
 
 /* כותרת */
-.hero-text h1 {
+.heroText h1 {
   font-size: 48px;
   font-weight: 800;
   color: #2d1b0e; /* חום כהה */
@@ -87,14 +68,14 @@
 }
 
 /* פאו 🐾 */
-.hero-text .paw {
+.heroText .paw {
   color: #ff9800;
   font-size: 40px;
   margin-left: 10px;
 }
 
 /* טקסט מתחת */
-.hero-text p {
+.heroText p {
   font-size: 18px;
   line-height: 1.6;
   color: #4a3b2a; /* חום בהיר */
@@ -126,7 +107,7 @@
 
 /* ============================ */
 /* RIGHT SIDE */
-.login-right {
+.loginRight {
   flex: 1;
   display: flex;
   justify-content: center;
@@ -134,7 +115,7 @@
 }
 
 /* CARD */
-.login-card {
+.loginCard {
   background: white;
   padding: 40px;
   border-radius: 20px;
@@ -142,7 +123,7 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
-.login-card h2 {
+.loginCard h2 {
   font-size: 26px;
   font-weight: 600;
   border: none;
@@ -155,7 +136,7 @@
   margin-bottom: 20px;
 }
 
-.login-card input {
+.loginCard input {
   width: 100%;
   padding: 12px;
   margin-bottom: 15px;
@@ -164,14 +145,14 @@
   outline: none;
 }
 
-input:focus {
+.loginCard input:focus {
   border: 1px solid #ff9800;
   outline: none;
 }
 
 /* ============================ */
 /* remember + forgot */
-.password-actions {
+.passwordActions {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -200,7 +181,7 @@ input:focus {
 
 /* ============================ */
 /* BUTTON */
-.login-btn {
+.loginBtn {
   width: 100%;
   padding: 14px;
   background: linear-gradient(90deg, #ff9800, #ffb74d);
@@ -213,7 +194,7 @@ input:focus {
   font-size: 16px;
 }
 
-.login-btn:hover {
+.loginBtn:hover {
   transform: scale(1.03);
   box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
 }
@@ -247,16 +228,16 @@ input:focus {
 }
 
 /* signup */
-.signup-text {
+.signupText {
   margin-top: 15px;
   text-align: center;
 }
 
-.signup-text span {
+.signupText span {
   color: #ff9800;
   cursor: pointer;
 }
-.paw-icon {
+.pawIcon {
   color: #ff9800;
   margin-left: 10px;
   font-size: 50px;

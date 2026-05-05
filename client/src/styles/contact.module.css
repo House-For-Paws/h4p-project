@@ -1,10 +1,10 @@
-.contact-page {
+.contactPage {
   min-height: calc(100vh - 80px);
-  background: url('../assets/site-background.png') no-repeat center center;
+  
   background-size: cover;
 }
 
-.contact-container {
+.contactContainer {
   max-width: 1200px;
   margin: 0 auto;
   min-height: 100vh;
@@ -14,17 +14,17 @@
 }
 
 /* ================= LEFT SIDE ================= */
-.contact-info {
+.contactInfo {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.contact-badge {
+.contactBadge {
   display: inline-block;
   background: rgba(255, 152, 0, 0.1);
-  color: #e67e00;
+  color: #ff9800;
   padding: 8px 16px;
   border-radius: 20px;
   font-size: 14px;
@@ -33,7 +33,7 @@
   width: fit-content;
 }
 
-.contact-info h1 {
+.contactInfo h1 {
   font-size: 48px;
   font-weight: 700;
   color: #2d1b0e;
@@ -43,11 +43,11 @@
   gap: 12px;
 }
 
-.paw-icon {
+.contactPawIcon {
   color: #ff9800;
 }
 
-.contact-subtitle {
+.contactSubtitle {
   font-size: 18px;
   color: #666;
   margin: 0 0 32px 0;
@@ -55,14 +55,14 @@
 }
 
 /* Info Cards */
-.info-cards {
+.infoCards {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-bottom: 32px;
 }
 
-.info-card {
+.infoCard {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -75,13 +75,13 @@
   transition: all 0.2s ease;
 }
 
-.info-card:hover {
+.infoCard:hover {
   transform: translateX(6px);
   box-shadow: 0 4px 16px rgba(255, 152, 0, 0.15);
   border-color: rgba(255, 152, 0, 0.2);
 }
 
-.info-icon {
+.infoIcon {
   font-size: 24px;
   width: 48px;
   height: 48px;
@@ -92,53 +92,53 @@
   border-radius: 10px;
 }
 
-.info-content {
+.infoContent {
   display: flex;
   flex-direction: column;
 }
 
-.info-label {
+.infoLabel {
   font-size: 13px;
   color: #999;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.info-value {
+.infoValue {
   font-size: 16px;
-  color: #333;
+  color: #333333;
   font-weight: 500;
 }
 
 /* Working Hours */
-.contact-hours {
+.contactHours {
   padding: 20px;
   background: white;
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.contact-hours h3 {
+.contactHours h3 {
   font-size: 16px;
   color: #2d1b0e;
   margin: 0 0 12px 0;
 }
 
-.contact-hours p {
+.contactHours p {
   font-size: 14px;
   color: #666;
   margin: 4px 0;
 }
 
 /* ================= RIGHT SIDE ================= */
-.contact-form-wrapper {
+.contactFormWrapper {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-.contact-form {
+.contactForm {
   width: 100%;
   max-width: 440px;
   background: white;
@@ -159,7 +159,7 @@
   }
 }
 
-.contact-form h2 {
+.contactForm h2 {
   font-size: 24px;
   color: #2d1b0e;
   margin: 0 0 28px 0;
@@ -167,11 +167,11 @@
   border: none;
 }
 
-.form-group {
+.formGroup {
   margin-bottom: 20px;
 }
 
-.form-group label {
+.formGroup label {
   display: block;
   font-size: 14px;
   font-weight: 500;
@@ -179,8 +179,8 @@
   margin-bottom: 8px;
 }
 
-.contact-form input,
-.contact-form textarea {
+.contactForm input,
+.contactForm textarea {
   width: 100%;
   padding: 14px 16px;
   font-size: 15px;
@@ -192,26 +192,26 @@
   box-sizing: border-box;
 }
 
-.contact-form input:focus,
-.contact-form textarea:focus {
+.contactForm input:focus,
+.contactForm textarea:focus {
   outline: none;
   border-color: #ff9800;
   background: white;
   box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
 }
 
-.contact-form input::placeholder,
-.contact-form textarea::placeholder {
+.contactForm input::placeholder,
+.contactForm textarea::placeholder {
   color: #aaa;
 }
 
-.contact-form textarea {
+.contactForm textarea {
   resize: vertical;
   min-height: 120px;
 }
 
 /* Button */
-.contact-form button {
+.contactForm button {
   width: 100%;
   padding: 16px;
   font-size: 16px;
@@ -225,22 +225,22 @@
   margin-top: 8px;
 }
 
-.contact-form button:hover:not(:disabled) {
+.contactForm button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(255, 152, 0, 0.35);
 }
 
-.contact-form button:active:not(:disabled) {
+.contactForm button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.contact-form button:disabled {
+.contactForm button:disabled {
   cursor: not-allowed;
   opacity: 0.9;
 }
 
 /* Button States */
-.btn-loading {
+.btnLoading {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -262,47 +262,47 @@
   }
 }
 
-.btn-success {
+.btnSuccess {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
 }
 
-.btn-success::before {
+.btnSuccess::before {
   content: "✓";
 }
 
 /* ================= RESPONSIVE ================= */
 @media (max-width: 900px) {
-  .contact-container {
+  .contactContainer {
     flex-direction: column;
     padding: 40px 24px;
     gap: 40px;
   }
 
-  .contact-info {
+  .contactInfo {
     text-align: center;
     align-items: center;
   }
 
-  .contact-info h1 {
+  .contactInfo h1 {
     font-size: 36px;
     justify-content: center;
   }
 
-  .info-cards {
+  .infoCards {
     width: 100%;
     max-width: 400px;
   }
 
-  .contact-hours {
+  .contactHours {
     width: 100%;
     max-width: 400px;
     text-align: left;
   }
 
-  .contact-form {
+  .contactForm {
     padding: 32px 24px;
   }
 }

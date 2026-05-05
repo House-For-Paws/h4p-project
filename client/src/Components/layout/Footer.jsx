@@ -1,43 +1,56 @@
-import "./footer.css";
-import { FaPaw } from "react-icons/fa";
+import { Link } from "react-router-dom";
+import styles from "../../Styles/footer.module.css";
+import PawIcon from "../features/PawIcon";
+import { FaFacebook, FaTwitter, FaInstagram, FaYoutube } from "react-icons/fa";
+
 function Footer() {
   return (
-    <footer className="footer-container">
-      <div className="footer-content">
-        <div className="footer-brand">
-          <div className="logo-row">
-            <FaPaw className="logo-icon" />
-            <span className="logo-text">House For Paws</span>
+    <footer className={styles.footer}>
+      <div className={styles.footerContainer}>
+        {/* Left */}
+        <div className={styles.footerBrand}>
+          <div className={styles.logoRow}>
+            <PawIcon />
+            <h2>House For Paws</h2>
           </div>
-          <p>Making tails wag since 2018</p>
+
+          <p>
+            Connecting loving families with pets in need of homes since 2026.
+          </p>
         </div>
 
-        <div className="footer-links">
-          <div className="footer-column">
-            <h5>Adopt</h5>
-            <a>Dogs</a>
-            <a>Cats</a>
-            <a>Other Pets</a>
-          </div>
+        {/* Adopt */}
+        <div className={styles.footerCol}>
+          <h3>Adopt</h3>
+          <Link to="#">Dogs</Link>
+          <Link to="#">Cats</Link>
+          <Link to="#">Other Pets</Link>
+          <Link to="#">Shelters Near You</Link>
+        </div>
 
-          <div className="footer-column">
-            <h5>About</h5>
-            <a>Our Story</a>
-            <a>Team</a>
-            <a>Careers</a>
-          </div>
+        {/* Resources */}
+        <div className={styles.footerCol}>
+          <h3>Resources</h3>
+          <Link to="#">Adoption Guide</Link>
+          <Link to="#">Pet Care Tips</Link>
+          <Link to="#">FAQs</Link>
+          <Link to="#">Contact Us</Link>
+        </div>
 
-          <div className="footer-column">
-            <h5>Support</h5>
-            <a>FAQ</a>
-            <a>Contact</a>
-            <a>Donate</a>
+        {/* Social */}
+        <div className={styles.footerCol}>
+          <h3>Follow Us</h3>
+          <div className={styles.socials}>
+            <div className={styles.socialIcon}><FaFacebook color="#1877F2" /></div>
+            <div className={styles.socialIcon}><FaTwitter color="#1DA1F2" /></div>
+            <div className={styles.socialIcon}><FaInstagram color="#E4405F" /></div>
+            <div className={styles.socialIcon}><FaYoutube color="#FF0000" /></div>
           </div>
         </div>
       </div>
 
-      <div className="footer-bottom">
-        <p>© 2026 House For Paws. All rights reserved.</p>
+      <div className={styles.footerBottom}>
+        2024 PawFinder. All rights reserved. Made with love for pets.
       </div>
     </footer>
   );

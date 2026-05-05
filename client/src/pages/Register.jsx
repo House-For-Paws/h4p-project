@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import Navbar from "../components/layout/Navbar";
-import "./register.css";
+import Footer from "../components/layout/Footer";
+import styles from "../styles/register.module.css";
 import { FaPaw } from "react-icons/fa";
 
 function Register() {
@@ -31,13 +32,13 @@ function Register() {
     <>
       <Navbar />
 
-      <div className="register-container">
-        <div className="register-card">
+      <div className={styles.registerContainer}>
+        <div className={styles.registerCard}>
           <h1>
-            Create Account <FaPaw className="paw-icon" />
+            Create Account <FaPaw className={styles.pawIcon} />
           </h1>
 
-          <p className="subtitle">
+          <p className={styles.subtitle}>
             Join our community and help pets find a home
           </p>
 
@@ -93,17 +94,17 @@ function Register() {
             placeholder="Your gender..."
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button className="register-btn" onClick={handleRegister}>
+          <button className={styles.registerBtn} onClick={handleRegister}>
             Create Account
           </button>
 
-          <div className="eula-accept-container">
-            <label className="eula-checkbox">
+          <div className={styles.eulaAcceptContainer}>
+            <label className={styles.eulaCheckbox}>
               <input type="checkbox" />
             </label>
 
             <span
-              className="accept-text"
+              className={styles.acceptText}
               onClick={() => window.open("/EULA.pdf", "_blank")}
             >
               Do you accept our terms and conditions?
@@ -111,6 +112,7 @@ function Register() {
           </div>
         </div>
       </div>
+      <Footer />
     </>
   );
 }

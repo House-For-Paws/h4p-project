@@ -1,8 +1,8 @@
 import { useState } from "react";
 import API from "../services/api";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
-import "./login.css";
+import Navbar from "../Components/layout/Navbar";
+import Footer from "../Components/layout/Footer";
+import styles from "../styles/login.module.css";
 import { FaPaw } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import { FaFacebook } from "react-icons/fa";
@@ -36,19 +36,19 @@ function Login() {
   return (
     <>
       <Navbar />
-      <div className="page-wrapper">
+      <div className={styles.pageWrapper}>
         {/* 🔥 עוטף את כל הדף */}
 
-        <div className="page-container">
+        <div className={styles.pageContainer}>
           {/* 🔥 הקונטיינר המרכזי */}
 
-          <div className="login-container">
+          <div className={styles.loginContainer}>
             {/* LEFT */}
-            <div className="login-left">
-              <div className="hero-text">
+            <div className={styles.loginLeft}>
+              <div className={styles.heroText}>
                 <h1>
                   Welcome back!
-                  <FaPaw className="paw-icon" />
+                  <FaPaw className={styles.pawIcon} />
                 </h1>
 
                 <p>
@@ -59,11 +59,11 @@ function Login() {
             </div>
 
             {/* RIGHT */}
-            <div className="login-right">
-              <div className="login-card">
+            <div className={styles.loginRight}>
+              <div className={styles.loginCard}>
                 <h2>Login</h2>
 
-                <p className="subtitle">We’re happy to see you again!</p>
+                <p className={styles.subtitle}>We’re happy to see you again!</p>
 
                 <input
                   type="email"
@@ -77,22 +77,22 @@ function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
 
-                <div className="password-actions">
-                  <label className="remember">
+                <div className={styles.passwordActions}>
+                  <label className={styles.remember}>
                     <input type="checkbox" />
                     Remember me
                   </label>
 
-                  <span className="forgot">Forgot password?</span>
+                  <span className={styles.forgot}>Forgot password?</span>
                 </div>
 
-                <button className="login-btn" onClick={handleLogin}>
+                <button className={styles.loginBtn} onClick={handleLogin}>
                   Login
                 </button>
 
-                <p className="divider">or continue with</p>
+                <p className={styles.divider}>or continue with</p>
 
-                <div className="socials">
+                <div className={styles.socials}>
                   <button>
                     <FaGoogle /> Google
                   </button>
@@ -101,7 +101,7 @@ function Login() {
                   </button>
                 </div>
 
-                <p className="signup-text">
+                <p className={styles.signupText}>
                   Don’t have an account?{" "}
                   <span onClick={() => navigate("/register")}>Sign up</span>
                 </p>

@@ -1,0 +1,90 @@
+.footer {
+  background-color: rgba(222, 185, 131, 0.8);
+  padding: 50px 80px 20px;
+  color: #333;
+}
+
+.footerContainer {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+  margin-bottom: 30px;
+}
+
+/* Brand */
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footerBrand p {
+  margin-top: 10px;
+  color: #666;
+  line-height: 1.6;
+}
+
+
+/* Columns */
+.footerCol h3 {
+  margin-bottom: 10px;
+}
+
+.footerCol a {
+  display: block;
+  margin: 6px 0;
+  text-decoration: none;
+  color: #555;
+  transition: 0.2s;
+}
+
+.footerCol a:hover {
+  color: #d9822b;
+}
+
+/* Social */
+.socials {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.socialIcon {
+  width: 40px;
+  height: 40px;
+  background: #e6e1dc;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.socialIcon:hover {
+  background: #d9822b;
+  color: white;
+}
+
+/* Bottom */
+.footerBottom {
+  border-top: 1px solid #ddd;
+  padding-top: 15px;
+  text-align: center;
+  color: #777;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .footerContainer {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .footerContainer {
+    grid-template-columns: 1fr;
+  }
+}

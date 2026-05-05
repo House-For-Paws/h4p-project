@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import "./howitworks.css";
+import styles from "../styles/howitworks.module.css";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 
@@ -56,41 +56,41 @@ export default function HowItWorks() {
   return (
     <>
       <Navbar />
-      <div className="hiw-page">
+      <div className={styles.hiwPage}>
         {/* Hero Section */}
-        <section className="hiw-hero">
-          <div className="hiw-hero-content">
-            <span className="hiw-badge">Simple Process</span>
-            <h1 className="hiw-title">How It Works</h1>
-            <p className="hiw-subtitle">
+        <section className={styles.hiwHero}>
+          <div className={styles.hiwHeroContent}>
+            <span className={styles.hiwBadge}>Simple Process</span>
+            <h1 className={styles.hiwTitle}>How It Works</h1>
+            <p className={styles.hiwSubtitle}>
               Helping pets find loving homes in just a few simple steps
             </p>
           </div>
         </section>
 
         {/* Main Content */}
-        <section className="hiw-main">
-          <div className="hiw-container">
+        <section className={styles.hiwMain}>
+          <div className={styles.hiwContainer}>
             {/* Carousel */}
-            <div className="hiw-carousel">
-              <div className="hiw-carousel-inner">
+            <div className={styles.hiwCarousel}>
+              <div className={styles.hiwCarouselInner}>
                 {images.map((img, idx) => (
                   <img
                     key={idx}
                     src={img}
                     alt={`Pet ${idx + 1}`}
-                    className={`hiw-carousel-image ${idx === currentImage ? "active" : ""}`}
+                    className={`${styles.hiwCarouselImage} ${idx === currentImage ? styles.active : ""}`}
                   />
                 ))}
-                <div className="hiw-carousel-overlay" />
+                <div className={styles.hiwCarouselOverlay} />
               </div>
 
               {/* Dots */}
-              <div className="hiw-carousel-dots">
+              <div className={styles.hiwCarouselDots}>
                 {images.map((_, idx) => (
                   <button
                     key={idx}
-                    className={`hiw-dot ${idx === currentImage ? "active" : ""}`}
+                    className={`${styles.hiwDot} ${idx === currentImage ? styles.active : ""}`}
                     onClick={() => goToImage(idx)}
                     aria-label={`Go to image ${idx + 1}`}
                   />
@@ -99,16 +99,16 @@ export default function HowItWorks() {
             </div>
 
             {/* Steps */}
-            <div className="hiw-steps">
+            <div className={styles.hiwSteps}>
               {steps.map((step, idx) => (
                 <div
                   key={idx}
-                  className={`hiw-step-card ${activeStep === idx ? "active" : ""}`}
+                  className={`${styles.hiwStepCard} ${activeStep === idx ? styles.active : ""}`}
                   onMouseEnter={() => setActiveStep(idx)}
                   onMouseLeave={() => setActiveStep(null)}
                 >
-                  <div className="hiw-step-number">{step.number}</div>
-                  <div className="hiw-step-icon">
+                  <div className={styles.hiwStepNumber}>{step.number}</div>
+                  <div className={styles.hiwStepIcon}>
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -120,9 +120,9 @@ export default function HowItWorks() {
                       <path d={step.icon} />
                     </svg>
                   </div>
-                  <h3 className="hiw-step-title">{step.title}</h3>
-                  <p className="hiw-step-description">{step.description}</p>
-                  <div className="hiw-step-connector" />
+                  <h3 className={styles.hiwStepTitle}>{step.title}</h3>
+                  <p className={styles.hiwStepDescription}>{step.description}</p>
+                  <div className={styles.hiwStepConnector} />
                 </div>
               ))}
             </div>
@@ -130,18 +130,18 @@ export default function HowItWorks() {
         </section>
 
         {/* CTA Section */}
-        <section className="hiw-cta">
-          <div className="hiw-cta-content">
+        <section className={styles.hiwCta}>
+          <div className={styles.hiwCtaContent}>
             <h2>Ready to Get Started?</h2>
             <p>
               Join thousands of happy pet owners and help animals find their
               forever homes.
             </p>
-            <div className="hiw-cta-buttons">
-              <a href="/pets" className="hiw-btn-primary">
+            <div className={styles.hiwCtaButtons}>
+              <a href="/pets" className={styles.hiwBtnPrimary}>
                 Browse Pets
               </a>
-              <a href="/contact" className="hiw-btn-secondary">
+              <a href="/contact" className={styles.hiwBtnSecondary}>
                 Contact Us
               </a>
             </div>

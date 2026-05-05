@@ -1,21 +1,21 @@
 /* ================= PAGE ================= */
-.hiw-page {
+.hiwPage {
   min-height: 100vh;
-  background:url('/src/assets/site-background.png') no-repeat center center/cover;
+  
 }
 
 /* ================= HERO ================= */
-.hiw-hero {
+.hiwHero {
   padding: 80px 20px 60px;
   text-align: center;
 }
 
-.hiw-hero-content {
+.hiwHeroContent {
   max-width: 600px;
   margin: 0 auto;
 }
 
-.hiw-badge {
+.hiwBadge {
   display: inline-block;
   background: #fff4e6;
   color: #e67700;
@@ -26,7 +26,7 @@
   margin-bottom: 16px;
 }
 
-.hiw-title {
+.hiwTitle {
   font-size: 48px;
   font-weight: 700;
   color: #2d1b0e;
@@ -34,7 +34,7 @@
   line-height: 1.1;
 }
 
-.hiw-subtitle {
+.hiwSubtitle {
   font-size: 18px;
   color: #666;
   margin: 0;
@@ -42,11 +42,11 @@
 }
 
 /* ================= MAIN ================= */
-.hiw-main {
+.hiwMain {
   padding: 0 20px 80px;
 }
 
-.hiw-container {
+.hiwContainer {
   max-width: 1100px;
   margin: 0 auto;
   display: flex;
@@ -55,19 +55,19 @@
 }
 
 /* ================= CAROUSEL ================= */
-.hiw-carousel {
+.hiwCarousel {
   position: relative;
   border-radius: 24px;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
 }
 
-.hiw-carousel-inner {
+.hiwCarouselInner {
   position: relative;
   height: 400px;
 }
 
-.hiw-carousel-image {
+.hiwCarouselImage {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -77,11 +77,11 @@
   transition: opacity 0.8s ease;
 }
 
-.hiw-carousel-image.active {
+.hiwCarouselImage.active {
   opacity: 1;
 }
 
-.hiw-carousel-overlay {
+.hiwCarouselOverlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
@@ -92,7 +92,7 @@
   pointer-events: none;
 }
 
-.hiw-carousel-dots {
+.hiwCarouselDots {
   position: absolute;
   bottom: 20px;
   left: 50%;
@@ -102,7 +102,7 @@
   z-index: 2;
 }
 
-.hiw-dot {
+.hiwDot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -112,23 +112,23 @@
   transition: all 0.3s ease;
 }
 
-.hiw-dot:hover {
+.hiwDot:hover {
   background: rgba(255, 255, 255, 0.8);
 }
 
-.hiw-dot.active {
+.hiwDot.active {
   background: #fff;
   transform: scale(1.2);
 }
 
 /* ================= STEPS ================= */
-.hiw-steps {
+.hiwSteps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 24px;
 }
 
-.hiw-step-card {
+.hiwStepCard {
   position: relative;
   background: #fff;
   border-radius: 20px;
@@ -138,13 +138,13 @@
   transition: all 0.3s ease;
 }
 
-.hiw-step-card:hover {
+.hiwStepCard:hover {
   transform: translateY(-8px);
   box-shadow: 0 16px 40px rgba(230, 119, 0, 0.12);
   border-color: #ffd8a8;
 }
 
-.hiw-step-number {
+.hiwStepNumber {
   position: absolute;
   top: -12px;
   left: 24px;
@@ -156,7 +156,7 @@
   border-radius: 12px;
 }
 
-.hiw-step-icon {
+.hiwStepIcon {
   width: 64px;
   height: 64px;
   margin: 0 auto 20px;
@@ -168,41 +168,41 @@
   transition: all 0.3s ease;
 }
 
-.hiw-step-card:hover .hiw-step-icon {
+.hiwStepCard:hover .hiwStepIcon {
   background: linear-gradient(135deg, #ff9800, #e67700);
 }
 
-.hiw-step-icon svg {
+.hiwStepIcon svg {
   width: 28px;
   height: 28px;
   color: #e67700;
   transition: color 0.3s ease;
 }
 
-.hiw-step-card:hover .hiw-step-icon svg {
+.hiwStepCard:hover .hiwStepIcon svg {
   color: #fff;
 }
 
-.hiw-step-title {
+.hiwStepTitle {
   font-size: 18px;
   font-weight: 600;
   color: #2d1b0e;
   margin: 0 0 8px;
 }
 
-.hiw-step-description {
+.hiwStepDescription {
   font-size: 14px;
   color: #666;
   margin: 0;
   line-height: 1.5;
 }
 
-.hiw-step-connector {
+.hiwStepConnector {
   display: none;
 }
 
 /* ================= CTA ================= */
-.hiw-cta {
+.hiwCta {
   background-color: rgba(169, 97, 46, 0.7);
   backdrop-filter: blur(10px);
   padding: 80px 20px;
@@ -210,33 +210,34 @@
   box-shadow: 20px 4px 20px rgba(0, 0, 0, 0.1);
 }
 
-.hiw-cta-content {
+.hiwCtaContent {
   max-width: 600px;
   margin: 0 auto;
 }
 
-.hiw-cta h2 {
+.hiwCta h2 {
   font-size: 36px;
   font-weight: 700;
   color: #fff;
   margin: 0 0 16px;
+  border: none;
 }
 
-.hiw-cta p {
+.hiwCta p {
   font-size: 18px;
   color: rgba(255, 255, 255, 0.8);
   margin: 0 0 32px;
   line-height: 1.6;
 }
 
-.hiw-cta-buttons {
+.hiwCtaButtons {
   display: flex;
   gap: 16px;
   justify-content: center;
   flex-wrap: wrap;
 }
 
-.hiw-btn-primary {
+.hiwBtnPrimary {
   display: inline-block;
   background: linear-gradient(135deg, #ff9800, #e67700);
   color: #fff;
@@ -248,12 +249,12 @@
   transition: all 0.3s ease;
 }
 
-.hiw-btn-primary:hover {
+.hiwBtnPrimary:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(255, 152, 0, 0.4);
 }
 
-.hiw-btn-secondary {
+.hiwBtnSecondary {
   display: inline-block;
   background: transparent;
   color: #fff;
@@ -266,53 +267,53 @@
   transition: all 0.3s ease;
 }
 
-.hiw-btn-secondary:hover {
+.hiwBtnSecondary:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.5);
 }
 
 /* ================= RESPONSIVE ================= */
 @media (max-width: 900px) {
-  .hiw-steps {
+  .hiwSteps {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 600px) {
-  .hiw-title {
+  .hiwTitle {
     font-size: 36px;
   }
 
-  .hiw-subtitle {
+  .hiwSubtitle {
     font-size: 16px;
   }
 
-  .hiw-carousel-inner {
+  .hiwCarouselInner {
     height: 280px;
   }
 
-  .hiw-steps {
+  .hiwSteps {
     grid-template-columns: 1fr;
   }
 
-  .hiw-step-card {
+  .hiwStepCard {
     padding: 28px 20px;
   }
 
-  .hiw-cta h2 {
+  .hiwCta h2 {
     font-size: 28px;
   }
 
-  .hiw-cta p {
+  .hiwCta p {
     font-size: 16px;
   }
 
-  .hiw-cta-buttons {
+  .hiwCtaButtons {
     flex-direction: column;
   }
 
-  .hiw-btn-primary,
-  .hiw-btn-secondary {
+  .hiwBtnPrimary,
+  .hiwBtnSecondary {
     width: 100%;
     text-align: center;
   }
