@@ -1,43 +1,49 @@
-// מייבא את הנתונים מה-"DB" הזמני
-const { comments } = require("../data");
+const { readDb, writeDb, getNextId } = require("../config/db");
 
-// 🔹 יצירת תגובה
+function enrichComment(comment, users) {
+  const user = users.find((item) => item.id === comment.userId);
+
+  return {
+    ...comment,
+    username: user ? user.username : "Unknown",
+  };
+}
+
 exports.createComment = (req, res) => {
-  // לוקחים את postId מה-URL
-  const postId = parseInt(req.params.postId);
-
-  // לוקחים את הטקסט מה-Body
+  const postId = Number(req.params.postId);
   const { text } = req.body;
 
-  // בדיקה: אם אין טקסט → שגיאה
   if (!text) {
-    return res.status(400).send("Text is required");
+    return res.status(400).json({ message: "Text is required" });
   }
 
-  // יוצרים תגובה חדשה
+  const db = readDb();
+  const post = db.posts.find((item) => item.id === postId);
+
+  if (!post) {
+    return res.status(404).json({ message: "Post not found" });
+  }
+
   const newComment = {
-    id: comments.length + 1, // מזהה ייחודי
-    postId, // לאיזה פוסט זה שייך
-    userId: req.user.id, // מי כתב (מה-JWT)
-    text, // התוכן
-    createdAt: new Date(), // זמן יצירה
+    id: getNextId(db.comments),
+    postId,
+    userId: req.user.id,
+    text: String(text).trim(),
+    createdAt: new Date().toISOString(),
   };
 
-  // שומרים את התגובה במערך
-  comments.push(newComment);
+  db.comments.push(newComment);
+  writeDb(db);
 
-  // מחזירים את התגובה
-  res.send(newComment);
+  res.status(201).json(enrichComment(newComment, db.users));
 };
 
-// 🔹 שליפת תגובות לפי פוסט
 exports.getCommentsByPost = (req, res) => {
-  // לוקחים postId מה-URL
-  const postId = parseInt(req.params.postId);
+  const postId = Number(req.params.postId);
+  const db = readDb();
+  const postComments = db.comments
+    .filter((comment) => comment.postId === postId)
+    .map((comment) => enrichComment(comment, db.users));
 
-  // מסננים רק תגובות של הפוסט הזה
-  const postComments = comments.filter((c) => c.postId === postId);
-
-  // מחזירים את התגובות
-  res.send(postComments);
+  res.json(postComments);
 };

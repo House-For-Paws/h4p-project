@@ -50,7 +50,7 @@ function Footer() {
       </div>
 
       <div className={styles.footerBottom}>
-        2024 PawFinder. All rights reserved. Made with love for pets.
+        2026 House For Paws. All rights reserved. Made with love for pets.
       </div>
     </footer>
   );

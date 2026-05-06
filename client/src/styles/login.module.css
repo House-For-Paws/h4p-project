@@ -39,6 +39,7 @@
   border-top-left-radius: 20px;
   border-bottom-left-radius: 20px;
   overflow: hidden;
+  
 }
 
 
@@ -49,11 +50,11 @@
 /* 🔥 טקסט על התמונה */
 .heroText {
   position: relative;
-  top: -350px;
-  
-
+  display: flex;
+  flex-direction: column;
+  top: -250px;
   z-index: 2; /* מעל התמונה */
-  max-width: 400px;
+  max-width: 300px;
 }
 
 /* כותרת */
@@ -63,7 +64,6 @@
   color: #2d1b0e; /* חום כהה */
   text-align: center;
   margin-bottom: 2px;
-  left: 50%;
   transform: translateX(-50%);
 }
 
@@ -71,7 +71,7 @@
 .heroText .paw {
   color: #ff9800;
   font-size: 40px;
-  margin-left: 10px;
+  
 }
 
 /* טקסט מתחת */
@@ -79,7 +79,7 @@
   font-size: 18px;
   line-height: 1.6;
   color: #4a3b2a; /* חום בהיר */
-  left: 2%;
+  
   transform: translateX(-25%);
 }
 /* blobs */

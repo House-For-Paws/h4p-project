@@ -1,21 +1,19 @@
 const jwt = require("jsonwebtoken");
-
-const SECRET = "mysecretkey";
+const { getJwtSecret } = require("../utils/generateToken");
 
 module.exports = (req, res, next) => {
-  const authHeader = req.headers.authorization; // מקבל header
+  const authHeader = req.headers.authorization;
 
-  if (!authHeader) {
-    return res.status(401).send("No token provided");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "No token provided" });
   }
 
-  const token = authHeader.split(" ")[1]; // מוציא רק את הטוקן
+  const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, SECRET); // בודק token
-    req.user = decoded; // שומר את המשתמש
-    next(); // ממשיך הלאה
+    req.user = jwt.verify(token, getJwtSecret());
+    next();
   } catch (err) {
-    res.status(401).send("Invalid token");
+    res.status(401).json({ message: "Invalid token" });
   }
 };

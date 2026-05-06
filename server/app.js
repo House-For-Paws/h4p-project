@@ -1,37 +1,50 @@
-require("dotenv").config(); // טוען משתני סביבה (לא חובה כרגע אבל טוב לעתיד)
-const express = require("express"); // ספריית שרת
-const cors = require("cors"); // מאפשר תקשורת בין client ל-server
+require("dotenv").config();
 
-const app = express(); // יצירת השרת
+const express = require("express");
+const cors = require("cors");
 
-// Middleware
-app.use(cors()); // מאפשר בקשות חיצוניות (React → Node)
-app.use(express.json()); // מאפשר לקרוא JSON מהבקשות
-
-// Routes
-const authRoutes = require("./routes/authRoutes"); // מייבא routes
-app.use("/api/auth", authRoutes); // כל בקשה ל /api/auth תגיע ל-authRoutes
-// מייבאים את ה-routes של הפוסטים
-const postRoutes = require("./routes/postRoutes");
-// כל בקשה ל /api/posts תעבור ל-postRoutes
-app.use("/api/posts", postRoutes);
-// מייבא routes של תגובות
+const authRoutes = require("./routes/authRoutes");
 const commentRoutes = require("./routes/commentRoutes");
-// מחבר אותם לשרת
-app.use("/api/comments", commentRoutes);
+const petRoutes = require("./routes/petRoutes");
+const postRoutes = require("./routes/postRoutes");
+const userRoutes = require("./routes/userRoutes");
 
+const app = express();
 
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
+  }),
+);
+app.use(express.json());
 
-
-// בדיקה שהשרת עובד
 app.get("/", (req, res) => {
-  res.send("Server is running 🔥");
+  res.json({
+    message: "H4P API is running",
+    endpoints: ["/api/auth", "/api/users", "/api/pets", "/api/posts", "/api/comments"],
+  });
 });
 
-// פורט
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/pets", petRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/comments", commentRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ message: "Server error" });
+});
+
 const PORT = process.env.PORT || 5000;
 
-// הפעלת השרת
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+module.exports = app;

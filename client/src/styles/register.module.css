@@ -1,95 +1,315 @@
-/* page */
+/* Container */
 .registerContainer {
-  min-height: calc(100vh - 80px);
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-
-
+  padding: 40px 20px;
+  position: relative;
+  overflow: hidden;
+  margin-top: 60px;
 }
 
-.pawIcon {
-  color: #ff9800;
+/* Decorative Background Elements */
+.decorativeBackground {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-/* card */
+.iconWrapper {
+  transition: all 0.3s ease;
+  filter: drop-shadow(2px 2px 4px  rgba(0, 0, 0, 0.11));
+  margin: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.iconWrapper:hover {
+  transform: scale(1.1);
+}
+
+
+
+
+/* Card */
 .registerCard {
   background: white;
-  padding: 50px;
-  border-radius: 25px;
-  width: 450px;
-  
-  box-shadow: 0 20px 50px rgba(0,0,0,0.1);
-  text-align: center;
-}
-
-/* title */
-.registerCard h1 {
-  font-size: 30px;
-  margin-bottom: 10px;
-  color: #2d1b0e;
-}
-
-/* subtitle */
-.subtitle {
-  color: #666;
-  margin-bottom: 25px;
-}
-
-/* inputs */
-.registerCard input {
+  border-radius: 24px;
   width: 100%;
-  padding: 14px;
-  margin-bottom: 15px;
-  border-radius: 12px;
-  border: 1px solid #ddd;
+  max-width: 520px;
+  box-shadow: 
+    0 4px 6px rgba(45, 27, 14, 0.04),
+    0 10px 20px rgba(45, 27, 14, 0.06),
+    0 25px 50px rgba(45, 27, 14, 0.08);
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
 }
 
-/* button */
+/* Card Header */
+.cardHeader {
+  background: linear-gradient(135deg,rgba(255, 152, 0, 0.8) 0%, rgba(255, 183, 77, 0.8) 30%);
+  padding: 32px 40px;
+  text-align: center;
+  
+}
+
+.iconWrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  
+}
+
+
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 8px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  margin: 0;
+}
+
+/* Form Content */
+.formContent {
+  padding: 32px 40px 40px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Input Groups */
+.inputGroup {
+  margin-bottom: 20px;
+}
+
+.inputLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4e2f00;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #f0e6dc;
+  border-radius: 12px;
+  font-size: 15px;
+  color: #2d1b0e;
+  background: #fdfbf9;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  color: #b8a596;
+}
+
+.input:hover {
+  border-color: #e6d5c3;
+  background: white;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #ff9800;
+  background: white;
+  box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.1);
+}
+
+/* Select Styling */
+select.input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234e2f00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+  padding-right: 44px;
+}
+
+/* Checkbox / EULA */
+.eulaAcceptContainer {
+  margin: 24px 0;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkboxCustom {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #e6d5c3;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.checkboxCustom svg {
+  width: 14px;
+  height: 14px;
+  color: white;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.2s ease;
+}
+
+.checkbox:checked + .checkboxCustom {
+  background: linear-gradient(135deg, #ff9800, #ffb74d);
+  border-color: #ff9800;
+}
+
+.checkbox:checked + .checkboxCustom svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.checkbox:focus + .checkboxCustom {
+  box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.1);
+}
+
+.checkboxText {
+  font-size: 14px;
+  color: #666;
+}
+
+.termsLink {
+  color: #ff9800;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.termsLink:hover {
+  color: #e68a00;
+  text-decoration: underline;
+}
+
+/* Register Button */
 .registerBtn {
   width: 100%;
-  padding: 14px;
-  background: linear-gradient(90deg, #ff9800, #ffb74d);
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
   color: white;
   border: none;
   border-radius: 12px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: 0.3s;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
 }
 
 .registerBtn:hover {
-  transform: scale(1.03);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
 }
 
-/* login link */
+.registerBtn:active {
+  transform: translateY(0);
+}
+
+.btnIcon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.3s ease;
+}
+
+.registerBtn:hover .btnIcon {
+  transform: translateX(4px);
+}
+
+/* Login Link */
 .loginLink {
-  margin-top: 15px;
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: #666;
 }
 
-.loginLink span {
+.loginLinkText {
   color: #ff9800;
-  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
 }
 
-.eulaAcceptContainer {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  margin-top: 15px;
+.loginLinkText:hover {
+  color: #e68a00;
+  text-decoration: underline;
 }
 
-.eulaCheckbox {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
+/* Responsive Design */
+@media (max-width: 560px) {
+  .registerContainer {
+    padding: 20px 16px;
+  }
+
+  .registerCard {
+    border-radius: 20px;
+  }
+
+  .cardHeader {
+    padding: 24px 24px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .formContent {
+    padding: 24px 24px 32px;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .iconWrapper {
+    width: 56px;
+    height: 56px;
+  }
+
+  .pawIcon {
+    width: 28px;
+    height: 28px;
+  }
 }
-
-.acceptText {
-  cursor: pointer;
-  font-size: 13px;
-  color: #ff9800;
-}
-
-
