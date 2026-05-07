@@ -1,7 +1,9 @@
 .footer {
-  background-color: rgba(222, 185, 131, 0.8);
+  background-color: rgba(234, 161, 77, 0.702);
   padding: 50px 80px 20px;
   color: #333;
+  backdrop-filter: blur(10px);
+  
 }
 
 .footerContainer {

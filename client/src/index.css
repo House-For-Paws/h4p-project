@@ -83,7 +83,10 @@ html {
 }
 
 body {
-  background:url('/src/assets/site-background.png') no-repeat center center/cover;
+  background-image:url('/src/assets/site-background.png') ;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: 100%;
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 1.6;

@@ -1,35 +1,29 @@
 import { useState } from "react";
-import API from "../services/api";
-import Navbar from "../Components/layout/Navbar";
-import Footer from "../Components/layout/Footer";
+import { login } from "../services/authService";
+import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
 import styles from "../styles/login.module.css";
 import { FaPaw } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import { FaFacebook } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
-
-
-
-
-
-
-
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
- const navigate = useNavigate();
-  const handleLogin = async () => {
+  const navigate = useNavigate();
+  const handleLogin = async (e) => {
+    e.preventDefault();
     try {
-      const res = await API.post("/auth/login", {
+      const res = await login({
         email,
         password,
       });
 
       localStorage.setItem("token", res.data.token);
-      alert("Logged in!");
+      navigate("/profile");
     } catch (err) {
-      alert("Login failed");
+      alert(err.response?.data?.message || "Login failed");
     }
   };
 
@@ -65,30 +59,32 @@ function Login() {
 
                 <p className={styles.subtitle}>We’re happy to see you again!</p>
 
-                <input
-                  type="email"
-                  placeholder="Email address"
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+                <form onSubmit={handleLogin}>
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
 
-                <input
-                  type="password"
-                  placeholder="Password"
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
 
-                <div className={styles.passwordActions}>
-                  <label className={styles.remember}>
-                    <input type="checkbox" />
-                    Remember me
-                  </label>
+                  <div className={styles.passwordActions}>
+                    <label className={styles.remember}>
+                      <input type="checkbox" />
+                      Remember me
+                    </label>
 
-                  <span className={styles.forgot}>Forgot password?</span>
-                </div>
+                    <span className={styles.forgot}>Forgot password?</span>
+                  </div>
 
-                <button className={styles.loginBtn} onClick={handleLogin}>
-                  Login
-                </button>
+                  <button type="submit" className={styles.loginBtn}>
+                    Login
+                  </button>
+                </form>
 
                 <p className={styles.divider}>or continue with</p>
 

@@ -1,13 +1,28 @@
-import styles from "./pawIcon.module.css";
+import styles from "../../styles/pawIcon.module.css";
 import { PawPrint } from "lucide-react";
-import { useState } from "react";
-function PawIcon({ size = 32 }) {
+
+function PawIcon({
+  size = 32,
+  hideCircle = false,
+
+  // 🔥 צבע האייקון
+  color = "#ffffff",
+
+  // 🔥 צבע המעגל
+  circleColor = "#ff9800",
+}) {
   return (
     <div
-      className={styles.logoCircle}
-      style={{ width: size * 2, height: size * 2 }}
+      className={`${styles.logoCircle} ${hideCircle ? styles.noCircle : ""}`}
+      style={{
+        width: size * 2,
+        height: size * 2,
+
+        // 🔥 צבע דינמי למעגל
+        backgroundColor: hideCircle ? "transparent" : circleColor,
+      }}
     >
-      <PawPrint size={size} color={"white"} />
+      <PawPrint size={size} color={color} />
     </div>
   );
 }

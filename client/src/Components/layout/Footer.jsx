@@ -10,7 +10,7 @@ function Footer() {
         {/* Left */}
         <div className={styles.footerBrand}>
           <div className={styles.logoRow}>
-            <PawIcon />
+            <PawIcon size={20}/>
             <h2>House For Paws</h2>
           </div>
 
@@ -41,10 +41,18 @@ function Footer() {
         <div className={styles.footerCol}>
           <h3>Follow Us</h3>
           <div className={styles.socials}>
-            <div className={styles.socialIcon}><FaFacebook color="#1877F2" /></div>
-            <div className={styles.socialIcon}><FaTwitter color="#1DA1F2" /></div>
-            <div className={styles.socialIcon}><FaInstagram color="#E4405F" /></div>
-            <div className={styles.socialIcon}><FaYoutube color="#FF0000" /></div>
+            <div className={styles.socialIcon}>
+              <FaFacebook color="#1877F2" />
+            </div>
+            <div className={styles.socialIcon}>
+              <FaTwitter color="#1DA1F2" />
+            </div>
+            <div className={styles.socialIcon}>
+              <FaInstagram color="#E4405F" />
+            </div>
+            <div className={styles.socialIcon}>
+              <FaYoutube color="#FF0000" />
+            </div>
           </div>
         </div>
       </div>

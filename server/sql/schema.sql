@@ -1,0 +1,57 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  username VARCHAR(80) NOT NULL,
+  email VARCHAR(160) NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  phone VARCHAR(40) DEFAULT '',
+  birthday VARCHAR(40) DEFAULT '',
+  firstName VARCHAR(80) DEFAULT '',
+  lastName VARCHAR(80) DEFAULT '',
+  gender VARCHAR(40) DEFAULT '',
+  role VARCHAR(40) NOT NULL DEFAULT 'user',
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY users_username_unique (username),
+  UNIQUE KEY users_email_unique (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pets (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  breed VARCHAR(100) NOT NULL,
+  age VARCHAR(60) NOT NULL,
+  location VARCHAR(120) NOT NULL,
+  type VARCHAR(40) NOT NULL,
+  image TEXT,
+  gender VARCHAR(40) NOT NULL,
+  status VARCHAR(40) NOT NULL DEFAULT 'available',
+  ownerId INT UNSIGNED NULL,
+  createdAt DATETIME NULL,
+  PRIMARY KEY (id),
+  KEY pets_ownerId_index (ownerId),
+  CONSTRAINT pets_ownerId_fk FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS posts (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  title VARCHAR(180) NOT NULL,
+  description TEXT NOT NULL,
+  userId INT UNSIGNED NOT NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY posts_userId_index (userId),
+  CONSTRAINT posts_userId_fk FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS comments (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  postId INT UNSIGNED NOT NULL,
+  userId INT UNSIGNED NOT NULL,
+  text TEXT NOT NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY comments_postId_index (postId),
+  KEY comments_userId_index (userId),
+  CONSTRAINT comments_postId_fk FOREIGN KEY (postId) REFERENCES posts(id) ON DELETE CASCADE,
+  CONSTRAINT comments_userId_fk FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

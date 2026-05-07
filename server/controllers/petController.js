@@ -1,63 +1,85 @@
-const { readDb, writeDb, getNextId } = require("../config/db");
+const { query, run } = require("../config/db");
 
-exports.getPets = (req, res) => {
-  const db = readDb();
+exports.getPets = async (req, res, next) => {
   const { type, search } = req.query;
 
-  let pets = db.pets;
+  const where = [];
+  const params = [];
 
   if (type && type !== "all") {
-    pets = pets.filter((pet) => pet.type === type);
+    where.push("type = ?");
+    params.push(type);
   }
 
   if (search) {
-    const term = String(search).toLowerCase();
-    pets = pets.filter(
-      (pet) =>
-        pet.name.toLowerCase().includes(term) ||
-        pet.breed.toLowerCase().includes(term) ||
-        pet.location.toLowerCase().includes(term),
+    const term = `%${String(search).toLowerCase()}%`;
+    where.push(
+      "(LOWER(name) LIKE ? OR LOWER(breed) LIKE ? OR LOWER(location) LIKE ?)",
     );
+    params.push(term, term, term);
   }
 
-  res.json(pets);
-};
-
-exports.getPetById = (req, res) => {
-  const db = readDb();
-  const pet = db.pets.find((item) => item.id === Number(req.params.id));
-
-  if (!pet) {
-    return res.status(404).json({ message: "Pet not found" });
+  try {
+    const pets = await query(
+      `SELECT * FROM pets ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id`,
+      params,
+    );
+    res.json(pets);
+  } catch (error) {
+    next(error);
   }
-
-  res.json(pet);
 };
 
-exports.createPet = (req, res) => {
+exports.getPetById = async (req, res, next) => {
+  try {
+    const pets = await query("SELECT * FROM pets WHERE id = ? LIMIT 1", [
+      Number(req.params.id),
+    ]);
+    const pet = pets[0];
+
+    if (!pet) {
+      return res.status(404).json({ message: "Pet not found" });
+    }
+
+    res.json(pet);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createPet = async (req, res, next) => {
   const { name, breed, age, location, type, image, gender } = req.body;
 
   if (!name || !breed || !age || !location || !type || !gender) {
     return res.status(400).json({ message: "Missing pet fields" });
   }
 
-  const db = readDb();
-  const newPet = {
-    id: getNextId(db.pets),
-    name,
-    breed,
-    age,
-    location,
-    type,
-    image: image || "",
-    gender,
-    status: "available",
-    ownerId: req.user.id,
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    const createdAt = new Date();
+    const result = await run(
+      `
+        INSERT INTO pets
+          (name, breed, age, location, type, image, gender, status, ownerId, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        name,
+        breed,
+        age,
+        location,
+        type,
+        image || "",
+        gender,
+        "available",
+        req.user.id,
+        createdAt,
+      ],
+    );
 
-  db.pets.push(newPet);
-  writeDb(db);
+    const pets = await query("SELECT * FROM pets WHERE id = ? LIMIT 1", [result.insertId]);
 
-  res.status(201).json(newPet);
+    res.status(201).json(pets[0]);
+  } catch (error) {
+    next(error);
+  }
 };

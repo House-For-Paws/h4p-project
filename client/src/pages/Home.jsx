@@ -1,91 +1,11 @@
 import { useState, useEffect } from "react";
 import styles from "../styles/home.module.css";
-import Navbar from "../Components/layout/Navbar";
-import Footer from "../Components/layout/Footer";
+import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
 import { useNavigate } from "react-router-dom";
-
-const pets = [
-  {
-    id: 1,
-    name: "Max",
-    breed: "Golden Retriever",
-    age: "2 years",
-    location: "Tel Aviv",
-    type: "dog",
-    image: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400",
-    gender: "Male",
-  },
-  {
-    id: 2,
-    name: "Luna",
-    breed: "British Shorthair",
-    age: "1 year",
-    location: "Haifa",
-    type: "cat",
-    image: "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400",
-    gender: "Female",
-  },
-  {
-    id: 3,
-    name: "Charlie",
-    breed: "Labrador",
-    age: "3 years",
-    location: "Jerusalem",
-    type: "dog",
-    image: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400",
-    gender: "Male",
-  },
-  {
-    id: 4,
-    name: "Milo",
-    breed: "Persian Cat",
-    age: "2 years",
-    location: "Tel Aviv",
-    type: "cat",
-    image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400",
-    gender: "Male",
-  },
-  {
-    id: 5,
-    name: "Bella",
-    breed: "Beagle",
-    age: "1 year",
-    location: "Eilat",
-    type: "dog",
-    image: "https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=400",
-    gender: "Female",
-  },
-  {
-    id: 6,
-    name: "Oliver",
-    breed: "Maine Coon",
-    age: "4 years",
-    location: "Haifa",
-    type: "cat",
-    image: "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400",
-    gender: "Male",
-  },
-  {
-    id: 7,
-    name: "Rocky",
-    breed: "German Shepherd",
-    age: "2 years",
-    location: "Tel Aviv",
-    type: "dog",
-    image: "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=400",
-    gender: "Male",
-  },
-  {
-    id: 8,
-    name: "Whiskers",
-    breed: "Siamese",
-    age: "1 year",
-    location: "Haifa",
-    type: "cat",
-    image: "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400",
-    gender: "Female",
-  },
-];
+import { login } from "../services/authService";
+import { getPets } from "../services/userService";
+import { getAvailablePetsCount } from "../services/statsService";
 
 const filters = [
   { id: "all", label: "All Pets", icon: "all" },
@@ -95,15 +15,57 @@ const filters = [
 
 function Home() {
   const [activeFilter, setActiveFilter] = useState("all");
-  const [likedPets, setLikedPets] = useState([]);
+  const [pets, setPets] = useState([]);
+  const [likedPets, setLikedPets] = useState(() => {
+    // Initialize from localStorage
+    const saved = localStorage.getItem("favoritedPets");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showPopup, setShowPopup] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [petsLoading, setPetsLoading] = useState(true);
+  const [petsError, setPetsError] = useState("");
+  const [availablePetsCount, setAvailablePetsCount] = useState(0);
   const [loginError, setLoginError] = useState("");
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadPets = async () => {
+      setPetsLoading(true);
+      setPetsError("");
+
+      try {
+        const res = await getPets({
+          type: activeFilter,
+          search: searchQuery,
+        });
+        setPets(res.data);
+      } catch (err) {
+        setPetsError(err.response?.data?.message || "Could not load pets");
+      } finally {
+        setPetsLoading(false);
+      }
+    };
+
+    loadPets();
+  }, [activeFilter, searchQuery]);
+
+  useEffect(() => {
+    const loadAvailablePetsCount = async () => {
+      try {
+        const res = await getAvailablePetsCount();
+        setAvailablePetsCount(res.count);
+      } catch (err) {
+        console.error("Failed to load available pets count:", err);
+      }
+    };
+
+    loadAvailablePetsCount();
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -141,20 +103,17 @@ function Home() {
     setLoginError("");
   };
 
-  const filteredPets = pets.filter((pet) => {
-    const matchesFilter = activeFilter === "all" || pet.type === activeFilter;
-    const matchesSearch =
-      searchQuery === "" ||
-      pet.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pet.breed.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pet.location.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
   const toggleLike = (id) => {
-    setLikedPets((prev) =>
-      prev.includes(id) ? prev.filter((petId) => petId !== id) : [...prev, id],
-    );
+    setLikedPets((prev) => {
+      const newLikedPets = prev.includes(id)
+        ? prev.filter((petId) => petId !== id)
+        : [...prev, id];
+
+      // Save to localStorage
+      localStorage.setItem("favoritedPets", JSON.stringify(newLikedPets));
+
+      return newLikedPets;
+    });
   };
 
   const handleAdoptClick = (pet) => {
@@ -177,14 +136,17 @@ function Home() {
     setIsLoading(true);
     setLoginError("");
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    localStorage.setItem("token", "logged_in");
-    setIsLoading(false);
-    setShowPopup(false);
-    setUsername("");
-    setPassword("");
+    try {
+      const res = await login({ email: username, username, password });
+      localStorage.setItem("token", res.data.token);
+      setShowPopup(false);
+      setUsername("");
+      setPassword("");
+    } catch (err) {
+      setLoginError(err.response?.data?.message || "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -260,6 +222,84 @@ function Home() {
             </p>
           </div>
 
+          <div className={styles.statsSection}>
+            <div className={styles.statCard}>
+              <div className={styles.statIcon}>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0-7.78z" />
+                  <path d="M8 14v.5" />
+                  <path d="M16 14v.5" />
+                  <path d="M11.25 16.25h1.5L12 17l-.75-.75Z" />
+                </svg>
+              </div>
+              <div className={styles.statContent}>
+                <h3 className={styles.statNumber}>15,000+</h3>
+                <p className={styles.statLabel}>Pets Adopted</p>
+              </div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statIcon}>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M3 9l9-7 9 9-9 9-7 9 9-7-9-7-9-9zm9 0a9 9 0 0 1 9 0 9 9 0 0 1-9 0zm-9 0v2h18v-2H3z" />
+                  <path d="M12 15l-2 5-9-9v4h18v-4l-7 7z" />
+                </svg>
+              </div>
+              <div className={styles.statContent}>
+                <h3 className={styles.statNumber}>500+</h3>
+                <p className={styles.statLabel}>Partner Shelters</p>
+              </div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statIcon}>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4z" />
+                  <path d="M16 3.13a4 4 0 0 1 4.87 4.13c0-.39.04-.79.08-1.17.13l-2.9 2.9a4 4 0 0 0-5.65 2.33l.13.13c.39-.05.79-.08 1.17-.13l2.9-2.9a4 4 0 0 0 5.65-2.33l-.13-.13c-.39.04-.79.08-1.17.13z" />
+                  <path d="M12 16v.5" />
+                  <path d="M16 16v.5" />
+                </svg>
+              </div>
+              <div className={styles.statContent}>
+                <h3 className={styles.statNumber}>50,000+</h3>
+                <p className={styles.statLabel}>Happy Families</p>
+              </div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statIcon}>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </div>
+              <div className={styles.statContent}>
+                <h3 className={styles.statNumber}>{availablePetsCount}</h3>
+                <p className={styles.statLabel}>Available Now</p>
+              </div>
+            </div>
+          </div>
+
           <div className={styles.searchWrapper}>
             <div className={styles.searchBox}>
               <svg
@@ -316,11 +356,21 @@ function Home() {
           </div>
 
           <p className={styles.resultsCount}>
-            Showing <strong>{filteredPets.length}</strong> pets available for
-            adoption
+            Showing <strong>{pets.length}</strong> pets available for adoption
           </p>
 
-          {filteredPets.length === 0 ? (
+          {petsLoading ? (
+            <div className={styles.emptyState}>
+              <h3>Loading pets...</h3>
+            </div>
+          ) : petsError ? (
+            <div className={styles.emptyState}>
+              <h3>{petsError}</h3>
+              <button onClick={() => window.location.reload()}>
+                Try again
+              </button>
+            </div>
+          ) : pets.length === 0 ? (
             <div className={styles.emptyState}>
               <svg
                 viewBox="0 0 24 24"
@@ -347,7 +397,7 @@ function Home() {
             </div>
           ) : (
             <div className={styles.feed}>
-              {filteredPets.map((pet) => (
+              {pets.map((pet) => (
                 <div key={pet.id} className={styles.card}>
                   <div className={styles.imageWrapper}>
                     <img

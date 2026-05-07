@@ -1,11 +1,9 @@
 .container {
   min-height: calc(100vh - 80vh);
   background-color: rgba(245, 245, 245, 0.5);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   margin-top: 66px;
 }
-
-
 
 .userDropdown {
   display: flex;
@@ -83,7 +81,9 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
   text-decoration: none;
   color: #ff9800;
   font-size: 0.9rem;
@@ -99,19 +99,135 @@
 .mainContent {
   flex: 1;
   padding: 2rem;
-  display: flex;
   gap: 2rem;
 }
 
-/* Profile Card */
-.profileCard {
-  width: 280px;
-  background-color: #fff;
+/* Content Card */
+.contentCard {
+  background: #fff;
   border-radius: 16px;
   padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* Settings Form */
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.settingGroup {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.settingGroup h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #ff9800;
+}
+
+.settingItem {
+  margin-bottom: 1.5rem;
+}
+
+.settingItem label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.settingItem input,
+.settingItem select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.settingItem input:focus,
+.settingItem select:focus {
+  outline: none;
+  border-color: #ff9800;
+  box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.1);
+}
+
+.settingItem input[readonly] {
+  background: #f8f9fa;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e5e5;
+}
+
+.saveButton {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saveButton:hover {
+  background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.cancelButton {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+  color: #666;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+  border-color: #ccc;
+  background: #f8f9fa;
+}
+
+/* Role Label and Value */
+.roleLabel {
+  font-weight: 500;
+  color: #555;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.roleValue {
+  color: #ff9800;
+  font-weight: 600;
+}
+
+/* Profile Card in Sidebar */
+.profileCard {
+  padding: 1.5rem;
   text-align: center;
-  height: fit-content;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  
 }
 
 .avatarWrapper {
@@ -125,6 +241,13 @@
   height: 120px;
   border-radius: 50%;
   object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ff9800;
+  color: #fff;
+  font-size: 3rem;
+  font-weight: 700;
   border: 4px solid #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -489,7 +612,7 @@
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .petsGrid {
     grid-template-columns: 1fr;
   }
@@ -499,7 +622,7 @@
   .mainContent {
     flex-direction: column;
   }
-  
+
   .profileCard {
     width: 100%;
   }
@@ -509,31 +632,32 @@
   .mainLayout {
     flex-direction: column;
   }
-  
+
   .sidebar {
     width: 100%;
     flex-direction: row;
     padding: 1rem;
+
     overflow-x: auto;
   }
-  
+
   .nav {
     flex-direction: row;
   }
-  
+
   .logoutButton {
     margin-left: auto;
   }
-  
+
   .tableHeader,
   .tableRow {
     grid-template-columns: 1.5fr 1fr 1fr;
   }
-  
+
   .header {
     padding: 1rem;
   }
-  
+
   .mainContent {
     padding: 1rem;
   }

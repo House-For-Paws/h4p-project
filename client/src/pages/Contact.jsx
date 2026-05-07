@@ -16,18 +16,14 @@ function Contact() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate submission
-    setTimeout(() => {
-      console.log({ name, email, message });
-      setIsSubmitting(false);
-      setSubmitted(true);
-      setName("");
-      setEmail("");
-      setMessage("");
-      
-      setTimeout(() => setSubmitted(false), 3000);
-    }, 1000);
+    window.location.href = `mailto:support@pawhome.com?subject=${encodeURIComponent(
+      `Message from ${name}`,
+    )}&body=${encodeURIComponent(`${message}\n\nFrom: ${name} <${email}>`)}`;
+    setIsSubmitting(false);
+    setSubmitted(true);
+    setName("");
+    setEmail("");
+    setMessage("");
   };
 
   return (

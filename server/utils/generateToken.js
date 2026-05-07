@@ -8,6 +8,8 @@ const generateToken = (user) =>
       id: user.id,
       email: user.email,
       username: user.username,
+      firstname: user.firstName || user.firstname || "",
+      lastname: user.lastName || user.lastname || "",
       role: user.role || "user",
     },
     getJwtSecret(),

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../services/api";
+import { register } from "../services/authService";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import styles from "../styles/register.module.css";
@@ -19,6 +19,9 @@ function Register() {
     gender: "",
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
@@ -29,8 +32,18 @@ function Register() {
       alert("Please accept the terms and conditions");
       return;
     }
-    // Add your registration logic here
-    console.log("Registering:", formData);
+
+    setIsSubmitting(true);
+
+    try {
+      const res = await register(formData);
+      localStorage.setItem("token", res.data.token);
+      navigate("/profile");
+    } catch (err) {
+      alert(err.response?.data?.message || "Registration failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -191,8 +204,12 @@ function Register() {
               </label>
             </div>
 
-            <button className={styles.registerBtn} onClick={handleRegister}>
-              <span>Create Account</span>
+            <button
+              className={styles.registerBtn}
+              onClick={handleRegister}
+              disabled={isSubmitting}
+            >
+              <span>{isSubmitting ? "Creating..." : "Create Account"}</span>
               <svg
                 className={styles.btnIcon}
                 viewBox="0 0 24 24"

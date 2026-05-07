@@ -1,12 +1,24 @@
 const fs = require("fs");
 const path = require("path");
+const mysql = require("mysql2/promise");
 
-const DB_DIR = path.join(__dirname, "..", "data");
-const DB_FILE = path.join(DB_DIR, "db.json");
+const DB_NAME = process.env.DB_NAME || "h4p";
+const SCHEMA_FILE = path.join(__dirname, "..", "sql", "schema.sql");
+
+const baseConfig = {
+  host: process.env.DB_HOST || "localhost",
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  waitForConnections: true,
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  queueLimit: 0,
+};
+
+let pool;
 
 const initialPets = [
   {
-    id: 1,
     name: "Max",
     breed: "Golden Retriever",
     age: "2 years",
@@ -17,7 +29,6 @@ const initialPets = [
     status: "available",
   },
   {
-    id: 2,
     name: "Luna",
     breed: "British Shorthair",
     age: "1 year",
@@ -28,7 +39,6 @@ const initialPets = [
     status: "available",
   },
   {
-    id: 3,
     name: "Charlie",
     breed: "Labrador",
     age: "3 years",
@@ -39,7 +49,6 @@ const initialPets = [
     status: "available",
   },
   {
-    id: 4,
     name: "Milo",
     breed: "Persian Cat",
     age: "2 years",
@@ -50,7 +59,6 @@ const initialPets = [
     status: "available",
   },
   {
-    id: 5,
     name: "Bella",
     breed: "Beagle",
     age: "1 year",
@@ -61,7 +69,6 @@ const initialPets = [
     status: "available",
   },
   {
-    id: 6,
     name: "Oliver",
     breed: "Maine Coon",
     age: "4 years",
@@ -72,7 +79,6 @@ const initialPets = [
     status: "available",
   },
   {
-    id: 7,
     name: "Rocky",
     breed: "German Shepherd",
     age: "2 years",
@@ -83,7 +89,6 @@ const initialPets = [
     status: "available",
   },
   {
-    id: 8,
     name: "Whiskers",
     breed: "Siamese",
     age: "1 year",
@@ -95,51 +100,83 @@ const initialPets = [
   },
 ];
 
-const initialState = {
-  users: [],
-  posts: [],
-  comments: [],
-  pets: initialPets,
-};
-
-function ensureDbFile() {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialState, null, 2));
-  }
+function quoteIdentifier(identifier) {
+  return `\`${String(identifier).replace(/`/g, "``")}\``;
 }
 
-function readDb() {
-  ensureDbFile();
-
-  try {
-    const data = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-    return {
-      users: Array.isArray(data.users) ? data.users : [],
-      posts: Array.isArray(data.posts) ? data.posts : [],
-      comments: Array.isArray(data.comments) ? data.comments : [],
-      pets: Array.isArray(data.pets) && data.pets.length ? data.pets : initialPets,
-    };
-  } catch (error) {
-    return { ...initialState };
+async function query(sql, params = []) {
+  if (!pool) {
+    throw new Error("Database has not been initialized");
   }
+
+  const [rows] = await pool.execute(sql, params);
+  return rows;
 }
 
-function writeDb(data) {
-  ensureDbFile();
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+async function run(sql, params = []) {
+  if (!pool) {
+    throw new Error("Database has not been initialized");
+  }
+
+  const [result] = await pool.execute(sql, params);
+  return result;
 }
 
-function getNextId(items) {
-  if (!items.length) return 1;
-  return Math.max(...items.map((item) => Number(item.id) || 0)) + 1;
+async function seedPets() {
+  const rows = await query("SELECT COUNT(*) AS count FROM pets");
+  if (rows[0].count > 0) {
+    return;
+  }
+
+  const values = initialPets.map((pet) => [
+    pet.name,
+    pet.breed,
+    pet.age,
+    pet.location,
+    pet.type,
+    pet.image,
+    pet.gender,
+    pet.status,
+  ]);
+
+  await pool.query(
+    `
+      INSERT INTO pets (name, breed, age, location, type, image, gender, status)
+      VALUES ?
+    `,
+    [values],
+  );
+}
+
+async function initDb() {
+  const setupConnection = await mysql.createConnection(baseConfig);
+  await setupConnection.query(
+    `CREATE DATABASE IF NOT EXISTS ${quoteIdentifier(DB_NAME)}
+     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  );
+  await setupConnection.end();
+
+  pool = mysql.createPool({
+    ...baseConfig,
+    database: DB_NAME,
+    multipleStatements: true,
+  });
+
+  await pool.query(fs.readFileSync(SCHEMA_FILE, "utf8"));
+  await seedPets();
+}
+
+function getPool() {
+  if (!pool) {
+    throw new Error("Database has not been initialized");
+  }
+
+  return pool;
 }
 
 module.exports = {
-  readDb,
-  writeDb,
-  getNextId,
+  initDb,
+  getPool,
+  query,
+  run,
 };

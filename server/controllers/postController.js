@@ -1,58 +1,67 @@
-const { readDb, writeDb, getNextId } = require("../config/db");
+const { query, run } = require("../config/db");
 
-function enrichPost(post, users) {
-  const user = users.find((item) => item.id === post.userId);
-
-  return {
-    ...post,
-    username: user ? user.username : "Unknown",
-    phone: user ? user.phone : null,
-  };
-}
-
-exports.createPost = (req, res) => {
+exports.createPost = async (req, res, next) => {
   const { title, description } = req.body;
 
   if (!title || !description) {
     return res.status(400).json({ message: "Title and description are required" });
   }
 
-  const db = readDb();
-  const newPost = {
-    id: getNextId(db.posts),
-    title: String(title).trim(),
-    description: String(description).trim(),
-    userId: req.user.id,
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    const result = await run(
+      "INSERT INTO posts (title, description, userId, createdAt) VALUES (?, ?, ?, ?)",
+      [String(title).trim(), String(description).trim(), req.user.id, new Date()],
+    );
 
-  db.posts.push(newPost);
-  writeDb(db);
+    const posts = await query(
+      `
+        SELECT posts.*, users.username, users.phone
+        FROM posts
+        LEFT JOIN users ON users.id = posts.userId
+        WHERE posts.id = ?
+        LIMIT 1
+      `,
+      [result.insertId],
+    );
 
-  res.status(201).json(enrichPost(newPost, db.users));
+    res.status(201).json(posts[0]);
+  } catch (error) {
+    next(error);
+  }
 };
 
-exports.getPosts = (req, res) => {
-  const db = readDb();
-  res.json(db.posts.map((post) => enrichPost(post, db.users)));
+exports.getPosts = async (req, res, next) => {
+  try {
+    const posts = await query(`
+      SELECT posts.*, COALESCE(users.username, 'Unknown') AS username, users.phone
+      FROM posts
+      LEFT JOIN users ON users.id = posts.userId
+      ORDER BY posts.id DESC
+    `);
+    res.json(posts);
+  } catch (error) {
+    next(error);
+  }
 };
 
-exports.deletePost = (req, res) => {
+exports.deletePost = async (req, res, next) => {
   const postId = Number(req.params.id);
-  const db = readDb();
-  const post = db.posts.find((item) => item.id === postId);
 
-  if (!post) {
-    return res.status(404).json({ message: "Post not found" });
+  try {
+    const posts = await query("SELECT * FROM posts WHERE id = ? LIMIT 1", [postId]);
+    const post = posts[0];
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    if (post.userId !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    await run("DELETE FROM posts WHERE id = ?", [postId]);
+    res.json({ message: "Post deleted" });
+  } catch (error) {
+    next(error);
   }
-
-  if (post.userId !== req.user.id && req.user.role !== "admin") {
-    return res.status(403).json({ message: "Not allowed" });
-  }
-
-  db.posts = db.posts.filter((item) => item.id !== postId);
-  db.comments = db.comments.filter((comment) => comment.postId !== postId);
-  writeDb(db);
-
-  res.json({ message: "Post deleted" });
 };

@@ -1,15 +1,6 @@
-const { readDb, writeDb, getNextId } = require("../config/db");
+const { query, run } = require("../config/db");
 
-function enrichComment(comment, users) {
-  const user = users.find((item) => item.id === comment.userId);
-
-  return {
-    ...comment,
-    username: user ? user.username : "Unknown",
-  };
-}
-
-exports.createComment = (req, res) => {
+exports.createComment = async (req, res, next) => {
   const postId = Number(req.params.postId);
   const { text } = req.body;
 
@@ -17,33 +8,52 @@ exports.createComment = (req, res) => {
     return res.status(400).json({ message: "Text is required" });
   }
 
-  const db = readDb();
-  const post = db.posts.find((item) => item.id === postId);
+  try {
+    const posts = await query("SELECT id FROM posts WHERE id = ? LIMIT 1", [postId]);
 
-  if (!post) {
-    return res.status(404).json({ message: "Post not found" });
+    if (!posts.length) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const result = await run(
+      "INSERT INTO comments (postId, userId, text, createdAt) VALUES (?, ?, ?, ?)",
+      [postId, req.user.id, String(text).trim(), new Date()],
+    );
+
+    const comments = await query(
+      `
+        SELECT comments.*, COALESCE(users.username, 'Unknown') AS username
+        FROM comments
+        LEFT JOIN users ON users.id = comments.userId
+        WHERE comments.id = ?
+        LIMIT 1
+      `,
+      [result.insertId],
+    );
+
+    res.status(201).json(comments[0]);
+  } catch (error) {
+    next(error);
   }
-
-  const newComment = {
-    id: getNextId(db.comments),
-    postId,
-    userId: req.user.id,
-    text: String(text).trim(),
-    createdAt: new Date().toISOString(),
-  };
-
-  db.comments.push(newComment);
-  writeDb(db);
-
-  res.status(201).json(enrichComment(newComment, db.users));
 };
 
-exports.getCommentsByPost = (req, res) => {
+exports.getCommentsByPost = async (req, res, next) => {
   const postId = Number(req.params.postId);
-  const db = readDb();
-  const postComments = db.comments
-    .filter((comment) => comment.postId === postId)
-    .map((comment) => enrichComment(comment, db.users));
 
-  res.json(postComments);
+  try {
+    const comments = await query(
+      `
+        SELECT comments.*, COALESCE(users.username, 'Unknown') AS username
+        FROM comments
+        LEFT JOIN users ON users.id = comments.userId
+        WHERE comments.postId = ?
+        ORDER BY comments.id
+      `,
+      [postId],
+    );
+
+    res.json(comments);
+  } catch (error) {
+    next(error);
+  }
 };

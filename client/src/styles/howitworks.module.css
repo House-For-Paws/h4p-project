@@ -1,6 +1,11 @@
 /* ================= PAGE ================= */
 .hiwPage {
-  min-height: 100vh;
+   min-height: 100vh;
+  
+  background-size: cover;
+  background-position: center;
+  
+  transition: filter 0.3s ease;
   
 }
 
@@ -136,6 +141,7 @@
   text-align: center;
   border: 1px solid #f0e6dc;
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .hiwStepCard:hover {
@@ -203,11 +209,10 @@
 
 /* ================= CTA ================= */
 .hiwCta {
-  background-color: rgba(169, 97, 46, 0.7);
-  backdrop-filter: blur(10px);
-  padding: 80px 20px;
-  text-align: center;
-  box-shadow: 20px 4px 20px rgba(0, 0, 0, 0.1);
+   padding: 100px 60px;
+  background:rgba(255, 255, 255, 0.5);
+  
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .hiwCtaContent {
@@ -218,14 +223,14 @@
 .hiwCta h2 {
   font-size: 36px;
   font-weight: 700;
-  color: #fff;
+  color: rgb(59, 58, 58)d2d;
   margin: 0 0 16px;
   border: none;
 }
 
 .hiwCta p {
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(56, 56, 56, 0.8);
   margin: 0 0 32px;
   line-height: 1.6;
 }
@@ -240,7 +245,7 @@
 .hiwBtnPrimary {
   display: inline-block;
   background: linear-gradient(135deg, #ff9800, #e67700);
-  color: #fff;
+  color: #ffffff;
   font-size: 16px;
   font-weight: 600;
   padding: 16px 32px;
@@ -255,21 +260,20 @@
 }
 
 .hiwBtnSecondary {
-  display: inline-block;
-  background: transparent;
-  color: #fff;
+   display: inline-block;
+  background: linear-gradient(135deg, #ff9800, #e67700);
+  color: #ffffff;
   font-size: 16px;
   font-weight: 600;
   padding: 16px 32px;
   border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
   text-decoration: none;
   transition: all 0.3s ease;
 }
 
 .hiwBtnSecondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 152, 0, 0.4);
 }
 
 /* ================= RESPONSIVE ================= */
@@ -318,3 +322,210 @@
     text-align: center;
   }
 }
+
+
+
+
+/* Popup Overlay */
+.popupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+  
+}
+
+.popupBox {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 1.5rem;
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  animation: popupIn 0.3s ease;
+}
+
+.popupAdopt {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes popupIn {
+  from {
+    transform: scale(0.9) translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.closePopup {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s ease;
+  padding: 0.25rem;
+}
+
+.closePopup:hover {
+  color: #333;
+}
+
+.popupHeader {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.popupIcon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  background: linear-gradient(135deg, #fff8f0 0%, #ffeccc 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popupIcon svg {
+  width: 32px;
+  height: 32px;
+  color: #ff9800;
+}
+
+.popupHeader h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 0.5rem;
+}
+
+.popupHeader p {
+  color: #888;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.75rem;
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.formGroup {
+  margin-bottom: 1rem;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #444;
+  margin-bottom: 0.5rem;
+}
+
+.popupInput {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  border: 2px solid #e5e5e5;
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.popupInput:focus {
+  border-color: #ff9800;
+  box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.1);
+}
+
+.popupInput::placeholder {
+  color: #bbb;
+}
+
+.popupLoginBtn {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: none;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+}
+
+.popupLoginBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.35);
+}
+
+.popupLoginBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.loadingSpinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.popupFooter {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eee;
+}
+
+.popupFooter p {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.popupFooter a {
+  color: #ff9800;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.popupFooter a:hover {
+  color: #f57c00;
+  text-decoration: underline;
+}
+

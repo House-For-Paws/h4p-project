@@ -11,31 +11,30 @@
   z-index: 1000;
   padding: 0 40px;
   background: rgba(255, 254, 254, 0.8);
-  backdrop-filter: blur(100px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   box-shadow: 0 10px 10px rgba(0, 0, 0, 0.05);
 }
 
 /* ================= LOGO ================= */
 .logo {
   font-weight: 700;
-  font-size: 26px;
+  font-size: 24px;
   color: #272727;
   display: flex;
   align-items: center;
-  cursor: pointer;
   gap: 10px;
 }
 
-.pawIcon {
-  color: #ffab03;
-  margin-left: 6px;
-  transition: transform 0.3s ease;
+.logo .pawIcon{
+  cursor: pointer;
+  
+  transition: all 0.3s ease;
 }
 
-.pawIcon:hover {
-  transform: scale(1.2);
+.logo .pawIcon:hover{
+  transform: scale(1.1);
 }
-
 /* ================= LINKS ================= */
 .navLinks {
   position: absolute; /* 🔥 מוציא מה-flow */
@@ -88,6 +87,7 @@
 
 .authSignupBtn:hover {
   transform: scale(1.05);
+  
 }
 
 /* login */
@@ -103,7 +103,45 @@
 }
 
 .authLoginBtn:hover {
-  background: #ff9800;
-  color: white;
   transform: scale(1.05);
+  
+}
+
+
+
+.profilePreview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 1px 8px;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  
+}
+
+.profilePreview:hover {
+   color: #ff9800;
+  box-shadow: 0 5px 0px rgba(255, 152, 0, 0.3);
+  border-radius: 8px;
+  transform: scale(1.05);
+}
+
+.profileImage {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 50%;
+
+  object-fit: cover;
+
+  border: 2px solid #ff9800;
+}
+
+.username {
+  font-size: 15px;
+  font-weight: 600;
+
+  color: #2d1b0e;
 }

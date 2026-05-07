@@ -1,9 +1,11 @@
-const { readDb, writeDb, getNextId } = require("../config/db");
+const { query, run } = require("../config/db");
 const { generateToken } = require("../utils/generateToken");
 const { hashPassword, verifyPassword } = require("../utils/password");
 
 function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
+  return String(email || "")
+    .trim()
+    .toLowerCase();
 }
 
 function publicUser(user) {
@@ -11,7 +13,7 @@ function publicUser(user) {
   return safeUser;
 }
 
-exports.register = (req, res) => {
+exports.register = async (req, res, next) => {
   const {
     username,
     email,
@@ -44,42 +46,61 @@ exports.register = (req, res) => {
       .json({ message: "Password must be at least 6 characters" });
   }
 
-  const db = readDb();
-  const userExists = db.users.some(
-    (user) =>
-      normalizeEmail(user.email) === cleanEmail ||
-      String(user.username || "").toLowerCase() === cleanUsername.toLowerCase(),
-  );
+  try {
+    const existingUsers = await query(
+      "SELECT id FROM users WHERE LOWER(email) = ? OR LOWER(username) = ? LIMIT 1",
+      [cleanEmail, cleanUsername.toLowerCase()],
+    );
 
-  if (userExists) {
-    return res.status(409).json({ message: "User already exists" });
+    if (existingUsers.length) {
+      return res.status(409).json({ message: "User already exists" });
+    }
+
+    const createdAt = new Date();
+    const result = await run(
+      `
+        INSERT INTO users
+          (username, email, password, phone, birthday, firstName, lastName, gender, role, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        cleanUsername,
+        cleanEmail,
+        hashPassword(password),
+        phoneNumber || phone || "",
+        birthday || "",
+        firstName || "",
+        lastName || "",
+        gender || "",
+        "user",
+        createdAt,
+      ],
+    );
+
+    const newUser = {
+      id: result.insertId,
+      username: cleanUsername,
+      email: cleanEmail,
+      phone: phoneNumber || phone || "",
+      birthday: birthday || "",
+      firstName: firstName || "",
+      lastName: lastName || "",
+      gender: gender || "",
+      role: "user",
+      createdAt,
+    };
+
+    res.status(201).json({
+      message: "Registration successful",
+      token: generateToken(newUser),
+      user: publicUser(newUser),
+    });
+  } catch (error) {
+    next(error);
   }
-
-  const newUser = {
-    id: getNextId(db.users),
-    username: cleanUsername,
-    email: cleanEmail,
-    password: hashPassword(password),
-    phone: phoneNumber || phone || "",
-    birthday: birthday || "",
-    firstName: firstName || "",
-    lastName: lastName || "",
-    gender: gender || "",
-    role: "user",
-    createdAt: new Date().toISOString(),
-  };
-
-  db.users.push(newUser);
-  writeDb(db);
-
-  res.status(201).json({
-    message: "Registration successful",
-    token: generateToken(newUser),
-    user: publicUser(newUser),
-  });
 };
 
-exports.login = (req, res) => {
+exports.login = async (req, res, next) => {
   const { email, username, password } = req.body;
   const login = normalizeEmail(email || username);
 
@@ -89,31 +110,68 @@ exports.login = (req, res) => {
       .json({ message: "Email or username and password are required" });
   }
 
-  const db = readDb();
-  const user = db.users.find(
-    (item) =>
-      normalizeEmail(item.email) === login ||
-      String(item.username || "").toLowerCase() === login.toLowerCase(),
-  );
+  try {
+    const users = await query(
+      "SELECT * FROM users WHERE LOWER(email) = ? OR LOWER(username) = ? LIMIT 1",
+      [login, login.toLowerCase()],
+    );
+    const user = users[0];
 
-  if (!user || !verifyPassword(password, user.password)) {
-    return res.status(401).json({ message: "Invalid email or password" });
+    if (!user || !verifyPassword(password, user.password)) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    res.json({
+      message: "Login successful",
+      token: generateToken(user),
+      user: publicUser(user),
+    });
+  } catch (error) {
+    next(error);
   }
-
-  res.json({
-    message: "Login successful",
-    token: generateToken(user),
-    user: publicUser(user),
-  });
 };
 
-exports.profile = (req, res) => {
-  const db = readDb();
-  const user = db.users.find((item) => item.id === req.user.id);
+exports.promote = async (req, res, next) => {
+  const { email, secret } = req.body;
+  const cleanEmail = normalizeEmail(email);
 
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
+  if (!cleanEmail || !secret) {
+    return res.status(400).json({ message: "Email and secret are required" });
   }
 
-  res.json({ user: publicUser(user) });
+  if (secret !== (process.env.ADMIN_SECRET || "h4p-admin-secret")) {
+    return res.status(403).json({ message: "Invalid secret" });
+  }
+
+  try {
+    const result = await run("UPDATE users SET role = ? WHERE email = ?", [
+      "admin",
+      cleanEmail,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "User promoted to admin" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.profile = async (req, res, next) => {
+  try {
+    const users = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [
+      req.user.id,
+    ]);
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ user: publicUser(user) });
+  } catch (error) {
+    next(error);
+  }
 };
