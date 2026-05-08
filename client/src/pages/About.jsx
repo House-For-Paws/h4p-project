@@ -179,7 +179,7 @@ useEffect(() => {
           <div className={styles.teamHeader}>
             <span className={styles.sectionBadge}>Our Team</span>
             <h2 className={styles.sectionTitle}>
-              Meet the People Behind PetAdopt
+              Meet the People Behind House For Paws
             </h2>
             <p className={styles.teamSubtitle}>
               Passionate individuals dedicated to making a difference in the

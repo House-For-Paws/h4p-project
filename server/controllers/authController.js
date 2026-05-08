@@ -175,3 +175,53 @@ exports.profile = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.updateProfile = async (req, res, next) => {
+  const { firstName, lastName, phone, gender, birthday } = req.body;
+
+  const cleanFirstName = String(firstName ?? "").trim();
+  const cleanLastName = String(lastName ?? "").trim();
+  const cleanPhone = String(phone ?? "").trim();
+  const cleanGender = String(gender ?? "").trim();
+  const cleanBirthday = String(birthday ?? "").trim();
+
+  if (!cleanFirstName || !cleanLastName) {
+    return res
+      .status(400)
+      .json({ message: "First name and last name are required" });
+  }
+
+  try {
+    await run(
+      `
+        UPDATE users
+        SET firstName = ?, lastName = ?, phone = ?, gender = ?, birthday = ?
+        WHERE id = ?
+      `,
+      [
+        cleanFirstName,
+        cleanLastName,
+        cleanPhone,
+        cleanGender,
+        cleanBirthday,
+        req.user.id,
+      ],
+    );
+
+    const users = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [
+      req.user.id,
+    ]);
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "Profile updated successfully",
+      user: publicUser(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+};

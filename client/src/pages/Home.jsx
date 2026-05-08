@@ -30,6 +30,9 @@ function Home() {
   const [petsError, setPetsError] = useState("");
   const [availablePetsCount, setAvailablePetsCount] = useState(0);
   const [loginError, setLoginError] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(() =>
+    Boolean(localStorage.getItem("token"))
+  );
 
   const navigate = useNavigate();
 
@@ -68,28 +71,36 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const syncAuthState = () => {
+      const hasToken = Boolean(localStorage.getItem("token"));
+      setIsAuthenticated(hasToken);
+    };
 
-    if (!token) {
-      const timer = setTimeout(() => {
-        setShowPopup(true);
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }
+    window.addEventListener("storage", syncAuthState);
+    return () => window.removeEventListener("storage", syncAuthState);
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    if (isAuthenticated) return;
 
-    if (!token) {
-      const interval = setInterval(() => {
-        setShowPopup(true);
-      }, 10000);
+    const maybeShowPopup = () => {
+      const hasToken = Boolean(localStorage.getItem("token"));
+      if (hasToken) {
+        setIsAuthenticated(true);
+        setShowPopup(false);
+        return;
+      }
+      setShowPopup(true);
+    };
 
-      return () => clearInterval(interval);
-    }
-  }, []);
+    const timer = setTimeout(maybeShowPopup, 3000);
+    const interval = setInterval(maybeShowPopup, 10000);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     document.body.style.overflow = showPopup ? "hidden" : "auto";
@@ -139,6 +150,7 @@ function Home() {
     try {
       const res = await login({ email: username, username, password });
       localStorage.setItem("token", res.data.token);
+      setIsAuthenticated(true);
       setShowPopup(false);
       setUsername("");
       setPassword("");

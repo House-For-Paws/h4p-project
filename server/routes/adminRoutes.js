@@ -3,7 +3,12 @@ const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
-const { getStats } = require("../controllers/adminController");
+const {
+  getStats,
+  getAllUsers,
+  getAllPosts,
+  getAllComments,
+} = require("../controllers/adminController");
 
 // Public endpoint for available pets count (no auth required)
 router.get("/available-count", async (req, res, next) => {
@@ -48,6 +53,9 @@ router.get(
   },
   getStats,
 );
+router.get("/users", authMiddleware, roleMiddleware("admin"), getAllUsers);
+router.get("/posts", authMiddleware, roleMiddleware("admin"), getAllPosts);
+router.get("/comments", authMiddleware, roleMiddleware("admin"), getAllComments);
 
 console.log(
   "DEBUG adminRoutes paths:",

@@ -35,3 +35,52 @@ exports.getStats = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getAllUsers = async (req, res, next) => {
+  try {
+    const users = await query(
+      `
+        SELECT id, username, email, role, createdAt
+        FROM users
+        ORDER BY createdAt DESC
+      `,
+    );
+    res.json(users);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getAllPosts = async (req, res, next) => {
+  try {
+    const posts = await query(
+      `
+        SELECT posts.id, posts.title, posts.createdAt, posts.userId,
+               COALESCE(users.username, 'Unknown') AS username
+        FROM posts
+        LEFT JOIN users ON users.id = posts.userId
+        ORDER BY posts.createdAt DESC, posts.id DESC
+      `,
+    );
+    res.json(posts);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getAllComments = async (req, res, next) => {
+  try {
+    const comments = await query(
+      `
+        SELECT comments.id, comments.postId, comments.userId, comments.text, comments.createdAt,
+               COALESCE(users.username, 'Unknown') AS username
+        FROM comments
+        LEFT JOIN users ON users.id = comments.userId
+        ORDER BY comments.createdAt DESC, comments.id DESC
+      `,
+    );
+    res.json(comments);
+  } catch (error) {
+    next(error);
+  }
+};
