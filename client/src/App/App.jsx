@@ -5,6 +5,7 @@ import Register from "../pages/Register";
 import Contact from "../pages/Contact";
 import HowItWorks from "../pages/HowItWorks";
 import About from "../pages/About";
+import Eula from "../pages/Eula";
 import Profile from "../pages/Profile";
 import AdminDashboard from "../pages/AdminDashboard";
 
@@ -18,6 +19,7 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
+        <Route path="/eula" element={<Eula />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminDashboard />} />
       </Routes>

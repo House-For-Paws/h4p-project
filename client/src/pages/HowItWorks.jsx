@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import styles from "../styles/howitworks.module.css";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
+import Navbar from "../Components/layout/Navbar";
+import Footer from "../Components/layout/Footer";
 import { useNavigate } from "react-router-dom";
 import { login } from "../services/authService";
+import { notifyAuthTokenChanged } from "../utils/authEvents";
 
 const images = [
   "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=1200&q=80",
@@ -87,6 +88,7 @@ export default function HowItWorks() {
     try {
       const res = await login({ email: username, username, password });
       localStorage.setItem("token", res.data.token);
+      notifyAuthTokenChanged();
       setShowPopup(false);
       setUsername("");
       setPassword("");

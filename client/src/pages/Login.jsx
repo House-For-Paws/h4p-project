@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { login } from "../services/authService";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
+import Navbar from "../Components/layout/Navbar";
+import Footer from "../Components/layout/Footer";
 import styles from "../styles/login.module.css";
 import { FaPaw } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import { FaFacebook } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { notifyAuthTokenChanged } from "../utils/authEvents";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -21,6 +22,7 @@ function Login() {
       });
 
       localStorage.setItem("token", res.data.token);
+      notifyAuthTokenChanged();
       navigate("/profile");
     } catch (err) {
       alert(err.response?.data?.message || "Login failed");

@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import styles from "../styles/home.module.css";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
+import Navbar from "../Components/layout/Navbar";
+import Footer from "../Components/layout/Footer";
 import { useNavigate } from "react-router-dom";
 import { login } from "../services/authService";
 import { getPets } from "../services/userService";
 import { getAvailablePetsCount } from "../services/statsService";
+import { notifyAuthTokenChanged } from "../utils/authEvents";
 
 const filters = [
   { id: "all", label: "All Pets", icon: "all" },
@@ -23,7 +24,7 @@ function Home() {
   });
   const [showPopup, setShowPopup] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [petsLoading, setPetsLoading] = useState(true);
@@ -139,7 +140,7 @@ function Home() {
   };
 
   const handleLogin = async () => {
-    if (!username || !password) {
+    if (!email || !password) {
       setLoginError("Please fill in all fields");
       return;
     }
@@ -148,11 +149,12 @@ function Home() {
     setLoginError("");
 
     try {
-      const res = await login({ email: username, username, password });
+      const res = await login({ email, password });
       localStorage.setItem("token", res.data.token);
+      notifyAuthTokenChanged();
       setIsAuthenticated(true);
       setShowPopup(false);
-      setUsername("");
+      setEmail("");
       setPassword("");
     } catch (err) {
       setLoginError(err.response?.data?.message || "Login failed");
@@ -263,8 +265,8 @@ function Home() {
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <path d="M3 9l9-7 9 9-9 9-7 9 9-7-9-7-9-9zm9 0a9 9 0 0 1 9 0 9 9 0 0 1-9 0zm-9 0v2h18v-2H3z" />
-                  <path d="M12 15l-2 5-9-9v4h18v-4l-7 7z" />
+                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <path d="M9 22V12h6v10" />
                 </svg>
               </div>
               <div className={styles.statContent}>
@@ -593,13 +595,13 @@ function Home() {
             )}
 
             <div className={styles.formGroup}>
-              <label htmlFor="username">Username</label>
+              <label htmlFor="email">Email</label>
               <input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={handleKeyPress}
                 className={styles.popupInput}
               />

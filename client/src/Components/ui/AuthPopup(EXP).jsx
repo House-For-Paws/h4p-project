@@ -1,6 +1,7 @@
 import styles from "../../styles/authPopup.module.css";
 import { useEffect, useState } from "react";
 import { login } from "../../services/authService";
+import { notifyAuthTokenChanged } from "../../utils/authEvents";
 
 function AuthPopup({ isOpen, onClose, title, subtitle }) {
   const [username, setUsername] = useState("");
@@ -37,6 +38,7 @@ function AuthPopup({ isOpen, onClose, title, subtitle }) {
     try {
       const res = await login({ email: username, username, password });
       localStorage.setItem("token", res.data.token);
+      notifyAuthTokenChanged();
       onClose();
       window.location.reload();
     } catch (err) {

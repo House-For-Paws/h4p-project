@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { register } from "../services/authService";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
+import Navbar from "../Components/layout/Navbar";
+import Footer from "../Components/layout/Footer";
 import styles from "../styles/register.module.css";
-import PawIcon from "../components/features/PawIcon";
+import PawIcon from "../Components/features/PawIcon";
+import TermsModal from "../Components/legal/TermsModal";
+import { notifyAuthTokenChanged } from "../utils/authEvents";
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -19,6 +21,7 @@ function Register() {
     gender: "",
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
@@ -29,15 +32,16 @@ function Register() {
 
   const handleRegister = async () => {
     if (!acceptedTerms) {
-      alert("Please accept the terms and conditions");
+      setTermsModalOpen(true);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const res = await register(formData);
+      const res = await register({ ...formData });
       localStorage.setItem("token", res.data.token);
+      notifyAuthTokenChanged();
       navigate("/profile");
     } catch (err) {
       alert(err.response?.data?.message || "Registration failed");
@@ -191,15 +195,14 @@ function Register() {
                   </svg>
                 </span>
                 <span className={styles.checkboxText}>
-                  I accept the{" "}
-                  <a
-                    href="/EULA.pdf"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  I agree to the{" "}
+                  <button
+                    type="button"
                     className={styles.termsLink}
+                    onClick={() => setTermsModalOpen(true)}
                   >
                     terms and conditions
-                  </a>
+                  </button>
                 </span>
               </label>
             </div>
@@ -231,6 +234,10 @@ function Register() {
         </div>
       </div>
       <Footer />
+      <TermsModal
+        open={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+      />
     </>
   );
 }

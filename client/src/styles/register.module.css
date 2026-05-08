@@ -206,16 +206,22 @@ select.input {
   color: #666;
 }
 
-.termsLink {
+button.termsLink {
+  font: inherit;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
   color: #ff9800;
-  text-decoration: none;
-  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 600;
   transition: color 0.2s ease;
 }
 
-.termsLink:hover {
+button.termsLink:hover {
   color: #e68a00;
-  text-decoration: underline;
 }
 
 /* Register Button */

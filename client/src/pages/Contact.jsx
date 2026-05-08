@@ -1,9 +1,9 @@
 import { useState } from "react";
 import styles from "../styles/contact.module.css";
-import Navbar from "../components/layout/Navbar";
+import Navbar from "../Components/layout/Navbar";
 import { FaPaw } from "react-icons/fa";
 import { FaPhone, FaWhatsapp } from "react-icons/fa";
-import Footer from "../components/layout/Footer";
+import Footer from "../Components/layout/Footer";
 
 
 function Contact() {
@@ -48,7 +48,7 @@ function Contact() {
               <span className={styles.infoIcon}>📧</span>
               <div className={styles.infoContent}>
                 <span className={styles.infoLabel}>Email</span>
-                <span className={styles.infoValue}>support@pawhome.com</span>
+                <span className={styles.infoValue}>houseforpaws.info@gmail.com</span>
               </div>
             </a>
 
@@ -56,7 +56,7 @@ function Contact() {
               <span className={styles.infoIcon}>📞</span>
               <div className={styles.infoContent}>
                 <span className={styles.infoLabel}>Phone</span>
-                <span className={styles.infoValue}>+972-50-123-4567</span>
+                <span className={styles.infoValue}>+972-544883203</span>
               </div>
             </a>
 
@@ -64,7 +64,7 @@ function Contact() {
               <span className={styles.infoIcon}>💬</span>
               <div className={styles.infoContent}>
                 <span className={styles.infoLabel}>WhatsApp</span>
-                <span className={styles.infoValue}>+972-50-123-4567</span>
+                <span className={styles.infoValue}>+972-544883203</span>
               </div>
             </a>
           </div>

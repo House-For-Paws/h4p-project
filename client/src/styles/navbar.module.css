@@ -1,147 +1,377 @@
-/* ================= NAVBAR ================= */
+/* Design tokens */
 .navbar {
-  height: 65px;
-  display: flex;
-  justify-content: space-between;
+  --nav-accent: #e65100;
+  --nav-accent-soft: rgba(230, 81, 0, 0.12);
+  --nav-accent-glow: rgba(255, 152, 0, 0.35);
+  --nav-text: #1e1310;
+  --nav-muted: #5c5048;
+  --nav-bar-bg: rgba(255, 252, 248, 0.92);
+  --nav-shadow:
+    0 4px 24px rgba(41, 28, 18, 0.07),
+    0 1px 0 rgba(255, 255, 255, 0.85) inset;
+}
+
+.navbar {
+  height: 72px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  gap: 12px;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   z-index: 1000;
-  padding: 0 40px;
-  background: rgba(255, 254, 254, 0.8);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.05);
+  padding: 0 clamp(16px, 4vw, 48px);
+  box-sizing: border-box;
+  background: var(--nav-bar-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--nav-shadow);
+  border-bottom: 1px solid rgba(230, 81, 0, 0.09);
 }
 
-/* ================= LOGO ================= */
+/* Logo */
 .logo {
-  font-weight: 700;
-  font-size: 24px;
-  color: #272727;
+  grid-column: 1;
+  justify-self: start;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  flex-shrink: 0;
+  z-index: 1002;
 }
 
-.logo .pawIcon{
+/* Inner PawIcon = size×2 (44px for size 22) — white paw on #ff9800 circle */
+.pawIcon {
   cursor: pointer;
-  
-  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 3px 8px rgba(255, 152, 0, 0.45));
+  transition: transform 0.25s ease, filter 0.25s ease;
 }
 
-.logo .pawIcon:hover{
-  transform: scale(1.1);
+.pawIcon > div {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
 }
-/* ================= LINKS ================= */
+
+.pawIcon:hover {
+  transform: translateY(-2px) scale(1.06);
+  filter: drop-shadow(0 6px 16px rgba(255, 152, 0, 0.55));
+}
+
+.logoText {
+  font-weight: 800;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  letter-spacing: -0.03em;
+  user-select: none;
+  color: #2a211c;
+}
+
+/* Middle column: nav stays viewport-centered regardless of auth button count */
+.navCenter {
+  grid-column: 2;
+  justify-self: center;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
 .navLinks {
-  position: absolute; /* 🔥 מוציא מה-flow */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.navLink {
+  position: relative;
+  margin: 0;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--nav-muted);
+  cursor: pointer;
+  border-radius: 999px;
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.navLink:hover {
+  color: var(--nav-accent);
+  background: var(--nav-accent-soft);
+}
+
+.navLinkActive {
+  color: var(--nav-accent);
+  background: var(--nav-accent-soft);
+}
+
+.navLinkActive::after {
+  content: "";
+  position: absolute;
   left: 50%;
+  bottom: 6px;
   transform: translateX(-50%);
-  max-width: 700px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ff9800, #f57c00);
 }
 
-.navLinks a {
-  margin: 0 15px;
-  color: #444;
+/* Hamburger — hidden on desktop */
+.menuToggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--nav-accent-soft);
   cursor: pointer;
-  font-size: 16px;
-  padding: 5px 10px;
-
-  transition: all 0.3s ease;
+  flex-shrink: 0;
+  z-index: 1002;
+  transition: background 0.2s ease;
 }
 
-.navLinks a:hover {
-  color: #ff9800;
-  box-shadow: 0 5px 0px rgba(255, 152, 0, 0.3);
-  border-radius: 8px;
-  transform: scale(1.05);
+.menuToggle:hover {
+  background: rgba(230, 81, 0, 0.2);
 }
 
-/* ================= AUTH ================= */
+.menuToggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  margin: 0 auto;
+  border-radius: 1px;
+  background: var(--nav-accent);
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.menuToggleOpen span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.menuToggleOpen span:nth-child(2) {
+  opacity: 0;
+}
+
+.menuToggleOpen span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Auth — right column; width does not shift the centered nav links */
 .authButtons {
+  grid-column: 3;
+  justify-self: end;
   display: flex;
   align-items: center;
-  gap: 30px;
-
-  min-width: 200px; /* 🔥 שומר מקום קבוע */
-  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+  z-index: 1002;
 }
 
-/* signup */
-.authSignupBtn {
-  background: linear-gradient(90deg, #ff9800, #ffb74d);
-  color: white;
-  border: none;
-  padding: 10px 22px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: 15px;
-  transition: all 0.3s ease;
-}
-
-.authSignupBtn:hover {
-  transform: scale(1.05);
-  
-}
-
-/* login */
 .authLoginBtn {
-  background: linear-gradient(90deg, #ff9800, #ffb74d);
-  color: white;
-  border: none;
-  padding: 10px 22px;
-  border-radius: 12px;
+  background: transparent;
+  color: var(--nav-accent);
+  border: 2px solid rgba(230, 81, 0, 0.45);
+  padding: 10px 20px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 15px;
-  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .authLoginBtn:hover {
-  transform: scale(1.05);
-  
+  background: var(--nav-accent-soft);
+  border-color: var(--nav-accent);
+  transform: translateY(-1px);
 }
 
+.authSignupBtn {
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 55%, #e65100 100%);
+  color: #fff;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px rgba(230, 81, 0, 0.35);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
 
+.authSignupBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(230, 81, 0, 0.42);
+}
 
 .profilePreview {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 1px 8px;
+  padding: 6px 14px 6px 8px;
+  border-radius: 999px;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(230, 81, 0, 0.12);
+  box-shadow: 0 2px 12px rgba(41, 28, 18, 0.06);
+  max-width: min(280px, 46vw);
   transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
     transform 0.2s ease,
-    box-shadow 0.2s ease;
-  
+    background 0.2s ease;
 }
 
 .profilePreview:hover {
-   color: #ff9800;
-  box-shadow: 0 5px 0px rgba(255, 152, 0, 0.3);
-  border-radius: 8px;
-  transform: scale(1.05);
+  border-color: rgba(230, 81, 0, 0.35);
+  box-shadow: 0 6px 20px rgba(230, 81, 0, 0.15);
+  transform: translateY(-1px);
+  background: #fff;
 }
 
 .profileImage {
-  width: 42px;
-  height: 42px;
-
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-
   object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.45);
+  flex-shrink: 0;
+}
 
-  border: 2px solid #ff9800;
+.profileInitialAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.45);
+  background: linear-gradient(145deg, #ff9800, #e65100);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  flex-shrink: 0;
 }
 
 .username {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--nav-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
 
-  color: #2d1b0e;
+@media (max-width: 900px) {
+  .navbar {
+    display: flex;
+  }
+
+  .logo {
+    grid-column: unset;
+    justify-self: unset;
+  }
+
+  .navCenter {
+    grid-column: unset;
+    justify-self: unset;
+    flex: 0;
+    width: 0;
+    height: 0;
+    overflow: visible;
+  }
+
+  .navLinks {
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 12px 16px 20px;
+    background: rgba(255, 252, 248, 0.98);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(230, 81, 0, 0.12);
+    box-shadow: 0 16px 40px rgba(41, 28, 18, 0.12);
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      max-height 0.35s ease,
+      opacity 0.25s ease,
+      visibility 0.35s ease;
+    z-index: 999;
+  }
+
+  .navLinksOpen {
+    max-height: 320px;
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .navLink {
+    text-align: center;
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  .navLinkActive::after {
+    display: none;
+  }
+
+  .menuToggle {
+    display: flex;
+    grid-column: unset;
+    justify-self: unset;
+    margin-left: auto;
+  }
+
+  .authButtons {
+    grid-column: unset;
+    justify-self: unset;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .username {
+    max-width: 96px;
+  }
 }
