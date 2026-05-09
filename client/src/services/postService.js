@@ -1,3 +1,4 @@
+/** Community forum REST wrappers — posts + nested comments share comment routes pattern. */
 import API from "./api";
 
 export const getPosts = () => API.get("/posts");

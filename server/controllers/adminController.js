@@ -1,5 +1,9 @@
+/**
+ * adminController — aggregate counts + tabular exports for /api/admin/* dashboards.
+ */
 const { query } = require("../config/db");
 
+/** Bundled KPIs + small “recent” lists for AdminDashboard.jsx charts/tables. */
 exports.getStats = async (req, res, next) => {
   try {
     const [usersRow] = await query("SELECT COUNT(*) AS count FROM users");
@@ -36,6 +40,7 @@ exports.getStats = async (req, res, next) => {
   }
 };
 
+/** Full users table subset for moderation (no passwords selected here). */
 exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await query(
@@ -51,6 +56,7 @@ exports.getAllUsers = async (req, res, next) => {
   }
 };
 
+/** All posts with author username join — admin content review. */
 exports.getAllPosts = async (req, res, next) => {
   try {
     const posts = await query(
@@ -68,6 +74,7 @@ exports.getAllPosts = async (req, res, next) => {
   }
 };
 
+/** All comments with author username join. */
 exports.getAllComments = async (req, res, next) => {
   try {
     const comments = await query(

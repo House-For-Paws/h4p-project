@@ -1,5 +1,9 @@
+/**
+ * postController — community posts with join to users for author display name.
+ */
 const { query, run } = require("../config/db");
 
+/** POST /posts — authenticated user creates thread row. */
 exports.createPost = async (req, res, next) => {
   const { title, description } = req.body;
 
@@ -30,6 +34,7 @@ exports.createPost = async (req, res, next) => {
   }
 };
 
+/** GET /posts — feed sorted newest first; joins users for username/phone. */
 exports.getPosts = async (req, res, next) => {
   try {
     const posts = await query(`
@@ -44,6 +49,7 @@ exports.getPosts = async (req, res, next) => {
   }
 };
 
+/** DELETE /posts/:id — author or admin only (ownership check). */
 exports.deletePost = async (req, res, next) => {
   const postId = Number(req.params.id);
 

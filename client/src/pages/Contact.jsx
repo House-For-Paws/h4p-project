@@ -1,3 +1,6 @@
+/**
+ * Contact page — simple support form that opens user's email client via mailto.
+ */
 import { useState } from "react";
 import styles from "../styles/contact.module.css";
 import Navbar from "../Components/layout/Navbar";
@@ -13,6 +16,7 @@ function Contact() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  /** Build mailto URL and reset local form state. */
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsSubmitting(true);

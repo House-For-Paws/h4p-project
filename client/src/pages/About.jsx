@@ -1,3 +1,6 @@
+/**
+ * About page — marketing/storytelling content with rotating hero image.
+ */
 import { useEffect, useState } from "react";
 import Navbar from "../Components/layout/Navbar";
 import styles from "../styles/about.module.css";
@@ -13,6 +16,7 @@ function About() {
   const [currentImage, setCurrentImage] = useState(0);
   const [fade, setFade] = useState(true);
 
+  /** Rotates hero image with fade transition every 5 seconds. */
 useEffect(() => {
   const interval = setInterval(() => {
     setFade(false);

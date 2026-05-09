@@ -1,3 +1,4 @@
+/** /api/comments — nested under post id in URL segment `/:postId`. */
 const express = require("express");
 const router = express.Router();
 

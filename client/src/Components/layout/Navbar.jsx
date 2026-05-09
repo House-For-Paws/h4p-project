@@ -1,3 +1,8 @@
+/**
+ * Global top navigation — logo, centered NavLinks, auth/profile slot.
+ * Loads optional profile from API when token exists; listens for AUTH_TOKEN_CHANGED_EVENT.
+ * Layout uses CSS grid on desktop so links don’t shift between login/register vs home.
+ */
 import styles from "../../styles/navbar.module.css";
 import PawIcon from "../features/PawIcon";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";

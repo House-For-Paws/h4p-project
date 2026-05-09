@@ -1,3 +1,4 @@
+/** Vite bundler config — React plugin + dev server SPA fallback for React Router. */
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 

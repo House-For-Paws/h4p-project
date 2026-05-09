@@ -1,3 +1,7 @@
+/**
+ * Admin dashboard page — loads aggregate stats + user/post/comment tables.
+ * Access enforced server-side by role middleware; UI handles 403 with message.
+ */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../Components/layout/Navbar";
@@ -21,6 +25,7 @@ const AdminDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState("");
   const navigate = useNavigate();
 
+  /** Fetch all admin datasets in parallel and stamp last refresh time. */
   const loadStats = async () => {
     setLoading(true);
     setError("");

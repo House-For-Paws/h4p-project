@@ -1,3 +1,4 @@
+/** /api/admin — dashboard aggregates + listings; most routes require admin role. */
 const express = require("express");
 const router = express.Router();
 

@@ -1,5 +1,9 @@
+/**
+ * commentController — thread replies on posts; enforces post exists before insert.
+ */
 const { query, run } = require("../config/db");
 
+/** POST /comments/:postId — auth user adds comment row linked to post + user. */
 exports.createComment = async (req, res, next) => {
   const postId = Number(req.params.postId);
   const { text } = req.body;
@@ -37,6 +41,7 @@ exports.createComment = async (req, res, next) => {
   }
 };
 
+/** GET /comments/:postId — public read of all comments for a post (newest optional). */
 exports.getCommentsByPost = async (req, res, next) => {
   const postId = Number(req.params.postId);
 

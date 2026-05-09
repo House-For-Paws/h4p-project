@@ -13,6 +13,9 @@ dist-ssr
 *.local
 server/data/db.json
 
+# Local secrets (keep templates in .env.example only)
+server/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

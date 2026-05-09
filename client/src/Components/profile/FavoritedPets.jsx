@@ -1,3 +1,6 @@
+/**
+ * Favorites tab content — reads liked pet ids from localStorage and resolves full pet cards.
+ */
 import { useState, useEffect } from "react";
 import styles from "../../styles/favoritedPets.module.css";
 import { getPets } from "../../services/userService";
@@ -35,6 +38,7 @@ const FavoritedPets = () => {
     loadFavoritedPets();
   }, []);
 
+  /** Remove/add local like state and persist favorite ids in localStorage. */
   const toggleLike = (petId) => {
     const favoritedIds = JSON.parse(localStorage.getItem("favoritedPets") || "[]");
     const newFavoritedIds = favoritedIds.includes(petId)

@@ -1,3 +1,7 @@
+/**
+ * Home page — pet discovery feed with search/filter + like persistence.
+ * Shows login popup for unauthenticated adoption actions.
+ */
 import { useState, useEffect } from "react";
 import styles from "../styles/home.module.css";
 import Navbar from "../Components/layout/Navbar";
@@ -115,6 +119,7 @@ function Home() {
     setLoginError("");
   };
 
+  /** Toggle favorite pet id in localStorage + state. */
   const toggleLike = (id) => {
     setLikedPets((prev) => {
       const newLikedPets = prev.includes(id)
@@ -128,6 +133,7 @@ function Home() {
     });
   };
 
+  /** Start adoption flow; enforce sign-in first. */
   const handleAdoptClick = (pet) => {
     const token = localStorage.getItem("token");
 
@@ -139,6 +145,7 @@ function Home() {
     navigate(`/adopt/${pet.id}`);
   };
 
+  /** Login popup submit handler (inline auth from home page). */
   const handleLogin = async () => {
     if (!email || !password) {
       setLoginError("Please fill in all fields");

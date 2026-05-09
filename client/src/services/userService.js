@@ -1,3 +1,4 @@
+/** Users + pets listing helpers — some endpoints require JWT or admin role server-side. */
 import API from "./api";
 
 export const getMe = () => API.get("/users/me");

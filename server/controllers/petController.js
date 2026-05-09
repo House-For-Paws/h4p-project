@@ -1,10 +1,15 @@
+/**
+ * petController — CRUD-adjacent handlers for adoptable pets listing (pets table).
+ * getPets builds dynamic WHERE from query string; createPet ties listing to req.user (JWT).
+ */
 const { query, run } = require("../config/db");
 
+/** GET /api/pets — optional filters: ?type=dog|cat|all, ?search=substring across name/breed/location. */
 exports.getPets = async (req, res, next) => {
   const { type, search } = req.query;
 
-  const where = [];
-  const params = [];
+  const where = []; // SQL fragments AND-joined
+  const params = []; // Bound values for prepared statement
 
   if (type && type !== "all") {
     where.push("type = ?");
@@ -30,6 +35,7 @@ exports.getPets = async (req, res, next) => {
   }
 };
 
+/** GET /api/pets/:id — single row or 404. */
 exports.getPetById = async (req, res, next) => {
   try {
     const pets = await query("SELECT * FROM pets WHERE id = ? LIMIT 1", [
@@ -47,6 +53,7 @@ exports.getPetById = async (req, res, next) => {
   }
 };
 
+/** POST /api/pets — auth required; inserts listing with ownerId = authenticated user. */
 exports.createPet = async (req, res, next) => {
   const { name, breed, age, location, type, image, gender } = req.body;
 

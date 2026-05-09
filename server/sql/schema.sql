@@ -15,6 +15,13 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY users_email_unique (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS profile_picture LONGTEXT NULL;
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS notify_new_pets TINYINT(1) NOT NULL DEFAULT 1,
+ADD COLUMN IF NOT EXISTS notify_application_updates TINYINT(1) NOT NULL DEFAULT 1;
+
 CREATE TABLE IF NOT EXISTS pets (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(100) NOT NULL,
@@ -54,4 +61,19 @@ CREATE TABLE IF NOT EXISTS comments (
   KEY comments_userId_index (userId),
   CONSTRAINT comments_postId_fk FOREIGN KEY (postId) REFERENCES posts(id) ON DELETE CASCADE,
   CONSTRAINT comments_userId_fk FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_otps (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  email VARCHAR(160) NOT NULL,
+  userId INT UNSIGNED NULL,
+  action VARCHAR(60) NOT NULL,
+  code VARCHAR(12) NOT NULL,
+  expiresAt DATETIME NOT NULL,
+  usedAt DATETIME NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY auth_otps_email_action_index (email, action),
+  KEY auth_otps_userId_index (userId),
+  CONSTRAINT auth_otps_userId_fk FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

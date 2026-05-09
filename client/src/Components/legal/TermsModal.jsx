@@ -1,9 +1,14 @@
+/**
+ * Accessible modal shell for legal text — portaled to document.body above page chrome.
+ * Locks background scroll while open; Escape + overlay click close; links to full /eula page.
+ */
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import TermsBody from "./TermsBody";
 import styles from "../../styles/termsModal.module.css";
 
+/** Controlled dialog: `open` toggles visibility; `onClose` clears parent state (Register page). */
 function TermsModal({ open, onClose }) {
   useEffect(() => {
     if (!open) return undefined;

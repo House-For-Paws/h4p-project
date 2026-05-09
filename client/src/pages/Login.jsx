@@ -1,3 +1,7 @@
+/**
+ * Login page — authenticates user and stores JWT in localStorage.
+ * On success dispatches auth-change event so Navbar/profile preview updates.
+ */
 import { useState } from "react";
 import { login } from "../services/authService";
 import Navbar from "../Components/layout/Navbar";
@@ -13,6 +17,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  /** Form submit handler for login credentials. */
   const handleLogin = async (e) => {
     e.preventDefault();
     try {

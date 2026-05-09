@@ -1,3 +1,7 @@
+/**
+ * Generic auth modal used by gated actions to request login inline.
+ * Persists JWT then notifies listeners and refreshes current page context.
+ */
 import styles from "../../styles/authPopup.module.css";
 import { useEffect, useState } from "react";
 import { login } from "../../services/authService";
@@ -20,12 +24,14 @@ function AuthPopup({ isOpen, onClose, title, subtitle }) {
 
   if (!isOpen) return null;
 
+  /** Enter-key shortcut for submitting login credentials. */
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
       handleLogin();
     }
   };
 
+  /** Authenticate user from popup fields and close on success. */
   const handleLogin = async () => {
     if (!username || !password) {
       setLoginError("Please fill in all fields");

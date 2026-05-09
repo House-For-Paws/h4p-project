@@ -1,3 +1,6 @@
+/**
+ * "How it works" explainer page — step cards + hero carousel + optional login popup.
+ */
 import { useState, useEffect } from "react";
 import styles from "../styles/howitworks.module.css";
 import Navbar from "../Components/layout/Navbar";
@@ -67,15 +70,18 @@ export default function HowItWorks() {
     return () => clearInterval(interval);
   }, []);
 
+  /** Jump to specific image dot in hero carousel. */
   const goToImage = (index) => {
     setCurrentImage(index);
   };
 
+  /** Close login popup and clear local login errors. */
   const closePopup = () => {
     setShowPopup(false);
     setLoginError("");
   };
 
+  /** Authenticate from popup and continue to app flow. */
   const handleLogin = async () => {
     if (!username || !password) {
       setLoginError("Please fill in all fields");

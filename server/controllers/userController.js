@@ -1,10 +1,15 @@
+/**
+ * userController — /api/users/me (self) and /api/users (admin list).
+ */
 const { query } = require("../config/db");
 
+/** Strip password hash from rows returned to browser. */
 function publicUser(user) {
   const { password, ...safeUser } = user;
   return safeUser;
 }
 
+/** GET /users/me — redundant convenience vs /auth/profile (same table). */
 exports.getMe = async (req, res, next) => {
   try {
     const users = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [req.user.id]);
@@ -20,6 +25,7 @@ exports.getMe = async (req, res, next) => {
   }
 };
 
+/** GET /users — admin-only full listing for moderation dashboards. */
 exports.getUsers = async (req, res, next) => {
   try {
     const users = await query("SELECT * FROM users ORDER BY id");

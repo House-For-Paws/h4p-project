@@ -1,3 +1,6 @@
+/**
+ * Site footer — brand columns, social icons, bottom strip with Terms (/eula) + copyright.
+ */
 import { Link } from "react-router-dom";
 import styles from "../../styles/footer.module.css";
 import PawIcon from "../features/PawIcon";

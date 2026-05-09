@@ -1,3 +1,4 @@
+/** Admin dashboard API — all routes require admin JWT (403 otherwise). */
 import API from "./api";
 
 export const getAdminStats = () => API.get("/admin/stats");

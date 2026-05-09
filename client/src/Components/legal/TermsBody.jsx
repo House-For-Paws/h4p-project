@@ -1,6 +1,11 @@
+/**
+ * Pure presentational legal document — reused by TermsModal + static /eula page.
+ * `<Exp />` renders red “(Experimental)” markers for features not shipped yet.
+ */
 import { Link } from "react-router-dom";
 import styles from "../../styles/termsBody.module.css";
 
+/** Inline badge for experimental / not-yet-built product areas (styled red in CSS module). */
 function Exp() {
   return <span className={styles.experimental}> (Experimental)</span>;
 }

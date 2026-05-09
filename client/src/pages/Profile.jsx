@@ -1,3 +1,7 @@
+/**
+ * Profile/settings hub — account data, security actions, preferences, and user pets.
+ * Most actions call /api/auth/* endpoints and optionally rotate JWT on success.
+ */
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "../styles/profile.module.css";
@@ -30,6 +34,7 @@ const getFriendlyRole = (role) => {
   return "Paw Seeker";
 };
 
+/** Main profile container with tabbed content and async form actions. */
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [myPets, setMyPets] = useState([]);
@@ -74,6 +79,7 @@ const Profile = () => {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
+  /** Load user profile + owned pets in parallel for initial render. */
   const loadProfile = async () => {
     setIsLoading(true);
     setError("");
@@ -130,12 +136,14 @@ const Profile = () => {
     setProfileForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  /** Switch profile card to editable mode. */
   const startEditing = () => {
     setIsEditing(true);
     setSaveMessage("");
     setSaveError("");
   };
 
+  /** Revert profile edits back to current persisted user values. */
   const cancelEditing = () => {
     setIsEditing(false);
     setSaveMessage("");
@@ -149,6 +157,7 @@ const Profile = () => {
     });
   };
 
+  /** Persist profile details and refresh JWT/user snapshot. */
   const handleSaveProfile = async () => {
     if (!profileForm.firstName.trim() || !profileForm.lastName.trim()) {
       setSaveError("First name and last name are required.");
@@ -198,6 +207,7 @@ const Profile = () => {
     setDeleteForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  /** Persist email change (requires current password). */
   const handleChangeEmail = async () => {
     if (!emailForm.newEmail.trim() || !emailForm.currentPassword) {
       setSettingsError("New email and current password are required.");
@@ -232,6 +242,7 @@ const Profile = () => {
     }
   };
 
+  /** Persist password change with current/new/confirm validation. */
   const handleChangePassword = async () => {
     if (
       !passwordForm.currentPassword ||
@@ -274,6 +285,7 @@ const Profile = () => {
     }
   };
 
+  /** Persist notification toggles in account settings. */
   const handleSaveNotifications = async () => {
     setIsUpdatingNotifications(true);
     setSettingsError("");
@@ -298,6 +310,7 @@ const Profile = () => {
     }
   };
 
+  /** Permanently delete account after password + DELETE confirmation. */
   const handleDeleteAccount = async () => {
     if (!deleteForm.currentPassword || !deleteForm.confirmationText) {
       setSettingsError("Please fill password and confirmation text.");
@@ -321,10 +334,12 @@ const Profile = () => {
     }
   };
 
+  /** Trigger hidden file input for avatar upload. */
   const handleChooseAvatar = () => {
     fileInputRef.current?.click();
   };
 
+  /** Validate image file, convert to data URL, and upload as profile picture. */
   const handleAvatarFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;

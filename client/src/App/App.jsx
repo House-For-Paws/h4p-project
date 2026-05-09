@@ -1,3 +1,7 @@
+/**
+ * Top-level SPA shell — defines every client-side URL → page component mapping.
+ * BrowserRouter enables useNavigate/useLocation; no server HTML per route (static Vite host).
+ */
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "../pages/Login";
 import Home from "../pages/Home";
@@ -9,6 +13,7 @@ import Eula from "../pages/Eula";
 import Profile from "../pages/Profile";
 import AdminDashboard from "../pages/AdminDashboard";
 
+/** Route table only — layout chrome (Navbar/Footer) is inside each page component. */
 function App() {
   return (
     <BrowserRouter>

@@ -1,3 +1,7 @@
+/**
+ * Registration page — collects profile/account fields and creates user.
+ * Includes Terms modal flow: user can open terms and must accept before submit.
+ */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { register } from "../services/authService";
@@ -26,10 +30,12 @@ function Register() {
 
   const navigate = useNavigate();
 
+  /** Returns an onChange callback for a specific field in formData. */
   const handleChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  /** Submits registration after terms acceptance check. */
   const handleRegister = async () => {
     if (!acceptedTerms) {
       setTermsModalOpen(true);
