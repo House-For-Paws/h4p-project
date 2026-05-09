@@ -145,6 +145,51 @@ exports.login = async (req, res, next) => {
 };
 
 /**
+ * POST /forgot-password — demo reset flow by email (no OTP yet).
+ * Validates email and new password, updates stored hash for matching user.
+ */
+exports.forgotPassword = async (req, res, next) => {
+  const { email, newPassword, confirmNewPassword } = req.body;
+  const cleanEmail = normalizeEmail(email);
+
+  if (!cleanEmail || !newPassword || !confirmNewPassword) {
+    return res
+      .status(400)
+      .json({ message: "Email, new password, and confirmation are required" });
+  }
+
+  if (newPassword.length < 6) {
+    return res
+      .status(400)
+      .json({ message: "New password must be at least 6 characters" });
+  }
+
+  if (String(newPassword) !== String(confirmNewPassword)) {
+    return res.status(400).json({ message: "New passwords do not match" });
+  }
+
+  try {
+    const users = await query("SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1", [
+      cleanEmail,
+    ]);
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ message: "No account found for this email" });
+    }
+
+    await run("UPDATE users SET password = ? WHERE id = ?", [
+      hashPassword(newPassword),
+      user.id,
+    ]);
+
+    res.json({ message: "Password reset successful. You can now log in." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /promote — bootstraps admin role given ADMIN_SECRET env + target email (no user JWT).
  */
 exports.promote = async (req, res, next) => {

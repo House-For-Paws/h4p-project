@@ -9,6 +9,8 @@ export const login = (credentials) => API.post("/auth/login", credentials);
 
 /** POST /auth/register — full signup form payload; returns { token, user }. */
 export const register = (formData) => API.post("/auth/register", formData);
+/** POST /auth/forgot-password — email + new password + confirmation. */
+export const forgotPassword = (payload) => API.post("/auth/forgot-password", payload);
 
 /** GET /auth/profile — requires Bearer token; returns { user }. */
 export const getProfile = () => API.get("/auth/profile");
