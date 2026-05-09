@@ -3,7 +3,7 @@
  * Most actions call /api/auth/* endpoints and optionally rotate JWT on success.
  */
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import styles from "../styles/profile.module.css";
 import Navbar from "../Components/layout/Navbar";
 import Footer from "../Components/layout/Footer";
@@ -78,6 +78,7 @@ const Profile = () => {
   });
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   /** Load user profile + owned pets in parallel for initial render. */
   const loadProfile = async () => {
@@ -117,6 +118,13 @@ const Profile = () => {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get("tab");
+    if (tab === "settings") {
+      setActiveTab("settings");
+    }
+  }, [location.search]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");

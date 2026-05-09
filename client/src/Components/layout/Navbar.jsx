@@ -6,9 +6,12 @@
 import styles from "../../styles/navbar.module.css";
 import PawIcon from "../features/PawIcon";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getProfile } from "../../services/authService";
-import { AUTH_TOKEN_CHANGED_EVENT } from "../../utils/authEvents";
+import {
+  AUTH_TOKEN_CHANGED_EVENT,
+  notifyAuthTokenChanged,
+} from "../../utils/authEvents";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -20,10 +23,56 @@ function Navbar() {
   const isLoggedIn = localStorage.getItem("token");
   const [navUser, setNavUser] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
 
   useEffect(() => {
     setMobileOpen(false);
+    setProfileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return undefined;
+
+    const handleOutsideClick = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    const handleEsc = (event) => {
+      if (event.key === "Escape") {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("click", handleOutsideClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("click", handleOutsideClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [profileMenuOpen]);
+  const formatDisplayName = (data) => {
+    const normalizedRole = String(data?.role || "").toLowerCase();
+    if (
+      normalizedRole === "admin" ||
+      normalizedRole === "administrator" ||
+      normalizedRole === "superadmin"
+    ) {
+      return "Admin";
+    }
+
+    const firstName = String(data?.firstName || data?.firstname || "").trim();
+    const lastName = String(data?.lastName || data?.lastname || "").trim();
+    const username = String(data?.username || "").trim();
+
+    if (firstName && lastName) return `${firstName} ${lastName}`;
+    if (firstName) return firstName;
+    if (username) return username;
+    return "User";
+  };
+
 
   const getUserFromToken = () => {
     try {
@@ -52,20 +101,7 @@ function Navbar() {
           return;
         }
         const fn = u.firstName || u.firstname || "";
-        const ln = u.lastName || u.lastname || "";
-        const normalizedRole = String(u.role || "").toLowerCase();
-        const username =
-          normalizedRole === "admin" ||
-          normalizedRole === "administrator" ||
-          normalizedRole === "superadmin"
-            ? "Admin"
-            : fn && ln
-              ? `Welcome back, ${fn} ${ln}`
-              : fn
-                ? `Welcome back, ${fn}`
-                : u.username
-                  ? `Welcome back, ${u.username}`
-                  : "Welcome back, User";
+        const username = formatDisplayName(u);
         const fallbackInitial = (fn || u.username || u.email || "U")
           .charAt(0)
           .toUpperCase();
@@ -76,22 +112,10 @@ function Navbar() {
         });
       } catch {
         const payload = getUserFromToken();
-        const normalizedRole = String(payload?.role || "").toLowerCase();
         setNavUser(
           payload
             ? {
-                username:
-                  normalizedRole === "admin" ||
-                  normalizedRole === "administrator" ||
-                  normalizedRole === "superadmin"
-                    ? "Admin"
-                    : payload.firstname && payload.lastname
-                      ? `Welcome back, ${payload.firstname} ${payload.lastname}`
-                      : payload.firstname
-                        ? `Welcome back, ${payload.firstname}`
-                        : payload.username
-                          ? `Welcome back, ${payload.username}`
-                          : "Welcome back, User",
+                username: formatDisplayName(payload),
                 fallbackInitial: (
                   payload.firstname ||
                   payload.username ||
@@ -115,25 +139,11 @@ function Navbar() {
 
   const tokenPayload = getUserFromToken();
 
-  const welcomeFromPayload = (payload) => {
-    if (!payload) return "Guest";
-    const r = String(payload.role || "").toLowerCase();
-    if (r === "admin" || r === "administrator" || r === "superadmin") {
-      return "Admin";
-    }
-    if (payload.firstname && payload.lastname) {
-      return `Welcome back, ${payload.firstname} ${payload.lastname}`;
-    }
-    if (payload.firstname) return `Welcome back, ${payload.firstname}`;
-    if (payload.username) return `Welcome back, ${payload.username}`;
-    return "Welcome back, User";
-  };
-
   const user =
     navUser ||
     (tokenPayload
       ? {
-          username: welcomeFromPayload(tokenPayload),
+          username: formatDisplayName(tokenPayload),
           fallbackInitial: (
             tokenPayload.firstname ||
             tokenPayload.username ||
@@ -151,9 +161,32 @@ function Navbar() {
         });
 
   const avatarSrc = user.avatarUrl || "";
+  const isAdminChip = String(user.username || "").toLowerCase() === "admin";
 
   const linkClass = ({ isActive }) =>
     `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`;
+
+  const goToProfile = () => {
+    setProfileMenuOpen(false);
+    navigate("/profile");
+  };
+
+  const goToProfileSettings = () => {
+    setProfileMenuOpen(false);
+    navigate("/profile?tab=settings");
+  };
+
+  const goToAdminDashboard = () => {
+    setProfileMenuOpen(false);
+    navigate("/admin");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    notifyAuthTokenChanged();
+    setProfileMenuOpen(false);
+    navigate("/login");
+  };
 
   return (
     <header className={styles.navbar}>
@@ -201,31 +234,62 @@ function Navbar() {
 
       <div className={styles.authButtons}>
         {isLoggedIn ? (
-          <div
-            className={styles.profilePreview}
-            onClick={() => navigate("/profile")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                navigate("/profile");
-              }
-            }}
-          >
-            {avatarSrc ? (
-              <img
-                src={avatarSrc}
-                alt=""
-                className={styles.profileImage}
-              />
-            ) : (
-              <div className={styles.profileInitialAvatar}>
-                {user.fallbackInitial}
+          <div className={styles.profileMenuWrap} ref={profileMenuRef}>
+            <div
+              className={`${styles.profilePreview} ${isAdminChip ? styles.profilePreviewAdmin : ""}`}
+              onClick={() => setProfileMenuOpen((prev) => !prev)}
+              role="button"
+              tabIndex={0}
+              aria-expanded={profileMenuOpen}
+              aria-haspopup="menu"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setProfileMenuOpen((prev) => !prev);
+                }
+              }}
+            >
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt=""
+                  className={styles.profileImage}
+                />
+              ) : (
+                <div className={styles.profileInitialAvatar}>
+                  {user.fallbackInitial}
+                </div>
+              )}
+
+              <div className={styles.profileText}>
+                <span className={styles.username}>{user.username}</span>
+                <span className={styles.profileSubtext}>
+                  {isAdminChip ? "Dashboard access" : "Profile"}
+                </span>
+              </div>
+              <span className={`${styles.profileChevron} ${profileMenuOpen ? styles.profileChevronOpen : ""}`}>
+                ▾
+              </span>
+            </div>
+
+            {profileMenuOpen && (
+              <div className={styles.profileDropdown} role="menu">
+                <button type="button" className={styles.profileDropdownItem} onClick={goToProfile}>
+                  Profile
+                </button>
+                <button type="button" className={styles.profileDropdownItem} onClick={goToProfileSettings}>
+                  Settings
+                </button>
+                {isAdminChip && (
+                  <button type="button" className={styles.profileDropdownItem} onClick={goToAdminDashboard}>
+                    Admin dashboard
+                  </button>
+                )}
+                <button type="button" className={`${styles.profileDropdownItem} ${styles.profileDropdownDanger}`} onClick={handleLogout}>
+                  Logout
+                </button>
               </div>
             )}
-
-            <span className={styles.username}>{user.username}</span>
           </div>
         ) : (
           <>

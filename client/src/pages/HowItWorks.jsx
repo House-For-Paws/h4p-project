@@ -55,6 +55,7 @@ export default function HowItWorks() {
   const [activeStep, setActiveStep] = useState(null);
 
   const [showPopup, setShowPopup] = useState(false);
+  const [showLogoutPrompt, setShowLogoutPrompt] = useState(false);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -109,6 +110,31 @@ export default function HowItWorks() {
     if (e.key === "Enter") {
       handleLogin();
     }
+  };
+
+  /** Handle step-card clicks with auth-aware routing rules. */
+  const handleStepNavigation = (step) => {
+    const hasToken = Boolean(localStorage.getItem("token"));
+
+    if (step.title === "Create an Account" && hasToken) {
+      setShowLogoutPrompt(true);
+      return;
+    }
+
+    if (step.title === "Post a Pet" && !hasToken) {
+      setShowPopup(true);
+      return;
+    }
+
+    navigate(step.route);
+  };
+
+  /** Logout from prompt and continue to register flow. */
+  const handleLogoutAndRegister = () => {
+    localStorage.removeItem("token");
+    notifyAuthTokenChanged();
+    setShowLogoutPrompt(false);
+    navigate("/register");
   };
 
   return (
@@ -168,17 +194,7 @@ export default function HowItWorks() {
                   className={`${styles.hiwStepCard} ${
                     activeStep === idx ? styles.active : ""
                   }`}
-                  onClick={() => {
-                    if (
-                      step.title === "Post a Pet" &&
-                      !localStorage.getItem("token")
-                    ) {
-                      setShowPopup(true);
-                      return;
-                    }
-
-                    navigate(step.route);
-                  }}
+                  onClick={() => handleStepNavigation(step)}
                   onMouseEnter={() => setActiveStep(idx)}
                   onMouseLeave={() => setActiveStep(null)}
                 >
@@ -328,6 +344,60 @@ export default function HowItWorks() {
                   <a href="/register">Create one</a>
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+        {showLogoutPrompt && (
+          <div
+            className={styles.popupOverlay}
+            onClick={() => setShowLogoutPrompt(false)}
+          >
+            <div
+              className={`${styles.popupBox} ${styles.popupAdopt}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span
+                className={styles.closePopup}
+                onClick={() => setShowLogoutPrompt(false)}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  width="20"
+                  height="20"
+                >
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </span>
+
+              <div className={styles.popupHeader}>
+                <h2>You are already logged in</h2>
+                <p>
+                  To create a new account, you need to log out first. Do you
+                  want to continue?
+                </p>
+              </div>
+
+              <button
+                onClick={handleLogoutAndRegister}
+                className={styles.popupLoginBtn}
+              >
+                Logout and Continue
+              </button>
+              <button
+                onClick={() => setShowLogoutPrompt(false)}
+                className={styles.popupLoginBtn}
+                style={{
+                  marginTop: "10px",
+                  background: "transparent",
+                  border: "1px solid #ff9800",
+                  color: "#ff9800",
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}

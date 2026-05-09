@@ -19,7 +19,9 @@ const filters = [
 ];
 
 function Home() {
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState(
+    () => localStorage.getItem("homeActiveFilter") || "all",
+  );
   const [pets, setPets] = useState([]);
   const [likedPets, setLikedPets] = useState(() => {
     // Initialize from localStorage
@@ -27,7 +29,9 @@ function Home() {
     return saved ? JSON.parse(saved) : [];
   });
   const [showPopup, setShowPopup] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(
+    () => localStorage.getItem("homeSearchQuery") || "",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,11 +39,20 @@ function Home() {
   const [petsError, setPetsError] = useState("");
   const [availablePetsCount, setAvailablePetsCount] = useState(0);
   const [loginError, setLoginError] = useState("");
+  const [favoriteToast, setFavoriteToast] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(() =>
     Boolean(localStorage.getItem("token"))
   );
 
   const navigate = useNavigate();
+  const hasActiveSearch = searchQuery.trim().length > 0;
+  const hasActiveTypeFilter = activeFilter !== "all";
+  const hasActiveFilters = hasActiveSearch || hasActiveTypeFilter;
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setActiveFilter("all");
+  };
 
   useEffect(() => {
     const loadPets = async () => {
@@ -108,6 +121,20 @@ function Home() {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    localStorage.setItem("homeActiveFilter", activeFilter);
+  }, [activeFilter]);
+
+  useEffect(() => {
+    localStorage.setItem("homeSearchQuery", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!favoriteToast) return undefined;
+    const timer = setTimeout(() => setFavoriteToast(""), 1800);
+    return () => clearTimeout(timer);
+  }, [favoriteToast]);
+
+  useEffect(() => {
     document.body.style.overflow = showPopup ? "hidden" : "auto";
     return () => {
       document.body.style.overflow = "auto";
@@ -122,12 +149,16 @@ function Home() {
   /** Toggle favorite pet id in localStorage + state. */
   const toggleLike = (id) => {
     setLikedPets((prev) => {
-      const newLikedPets = prev.includes(id)
+      const isAlreadyLiked = prev.includes(id);
+      const newLikedPets = isAlreadyLiked
         ? prev.filter((petId) => petId !== id)
         : [...prev, id];
 
       // Save to localStorage
       localStorage.setItem("favoritedPets", JSON.stringify(newLikedPets));
+      setFavoriteToast(
+        isAlreadyLiked ? "Removed from favorites" : "Saved to favorites",
+      );
 
       return newLikedPets;
     });
@@ -230,6 +261,30 @@ function Home() {
     );
   };
 
+  const getPetStatusLabel = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "available") return "Looking for a home";
+    if (normalized === "adopted") return "Found a loving home";
+    if (normalized === "pending") return "Adoption in progress";
+    return "Looking for a home";
+  };
+
+  const renderSkeletonCards = () =>
+    Array.from({ length: 6 }).map((_, index) => (
+      <div key={`skeleton-${index}`} className={`${styles.card} ${styles.skeletonCard}`}>
+        <div className={styles.skeletonImage} />
+        <div className={styles.info}>
+          <div className={styles.skeletonLineLg} />
+          <div className={styles.skeletonLineMd} />
+          <div className={styles.skeletonMetaRow}>
+            <div className={styles.skeletonPill} />
+            <div className={styles.skeletonPill} />
+          </div>
+          <div className={styles.skeletonButton} />
+        </div>
+      </div>
+    ));
+
   return (
     <>
       <Navbar />
@@ -240,6 +295,9 @@ function Home() {
             <h1 className={styles.title}>Find Your Perfect Companion</h1>
             <p className={styles.subtitle}>
               Browse adorable pets waiting for their forever home
+            </p>
+            <p className={styles.trustNote}>
+              House For Paws is adoption-focused only. No buying or selling of animals.
             </p>
           </div>
 
@@ -321,69 +379,111 @@ function Home() {
             </div>
           </div>
 
-          <div className={styles.searchWrapper}>
-            <div className={styles.searchBox}>
-              <svg
-                className={styles.searchIcon}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search by name, breed, or location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={styles.searchInput}
-              />
-              {searchQuery && (
-                <button
-                  className={styles.clearSearch}
-                  onClick={() => setSearchQuery("")}
-                  aria-label="Clear search"
+          <div className={styles.futurePostCta}>
+            <div className={styles.futurePostText}>
+              <h3>Create Adoption Post</h3>
+              <p>
+                Coming soon: publish a pet profile with photos, health details, and
+                contact options for adopters.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={styles.futurePostButton}
+              disabled
+              title="Coming soon"
+            >
+              Coming Soon
+            </button>
+          </div>
+
+          <div className={styles.discoveryBar}>
+            <div className={styles.searchWrapper}>
+              <div className={styles.searchBox}>
+                <svg
+                  className={styles.searchIcon}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by name, breed, or location..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={styles.searchInput}
+                />
+                {searchQuery && (
+                  <button
+                    className={styles.clearSearch}
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Clear search"
                   >
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.filters}>
+              {filters.map((filter) => (
+                <button
+                  key={filter.id}
+                  className={`${styles.filterBtn} ${
+                    activeFilter === filter.id ? styles.active : ""
+                  }`}
+                  onClick={() => setActiveFilter(filter.id)}
+                >
+                  <span className={styles.filterIcon}>
+                    <FilterIcon type={filter.icon} />
+                  </span>
+                  {filter.label}
                 </button>
-              )}
+              ))}
             </div>
           </div>
 
-          <div className={styles.filters}>
-            {filters.map((filter) => (
-              <button
-                key={filter.id}
-                className={`${styles.filterBtn} ${
-                  activeFilter === filter.id ? styles.active : ""
-                }`}
-                onClick={() => setActiveFilter(filter.id)}
-              >
-                <span className={styles.filterIcon}>
-                  <FilterIcon type={filter.icon} />
-                </span>
-                {filter.label}
+          {hasActiveFilters && (
+            <div className={styles.activeFilterChips}>
+              {hasActiveTypeFilter && (
+                <button
+                  className={styles.filterChip}
+                  onClick={() => setActiveFilter("all")}
+                >
+                  Type: {activeFilter} ✕
+                </button>
+              )}
+              {hasActiveSearch && (
+                <button
+                  className={styles.filterChip}
+                  onClick={() => setSearchQuery("")}
+                >
+                  Search: {searchQuery} ✕
+                </button>
+              )}
+              <button className={styles.clearAllChip} onClick={resetFilters}>
+                Clear all
               </button>
-            ))}
-          </div>
+            </div>
+          )}
 
           <p className={styles.resultsCount}>
             Showing <strong>{pets.length}</strong> pets available for adoption
           </p>
 
           {petsLoading ? (
-            <div className={styles.emptyState}>
-              <h3>Loading pets...</h3>
-            </div>
+            <div className={styles.feed}>{renderSkeletonCards()}</div>
           ) : petsError ? (
             <div className={styles.emptyState}>
               <h3>{petsError}</h3>
@@ -407,14 +507,16 @@ function Home() {
                 Try adjusting your search or filter to find your perfect
                 companion
               </p>
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setActiveFilter("all");
-                }}
-              >
+              <button onClick={resetFilters}>
                 Clear filters
               </button>
+              <div className={styles.suggestedActions}>
+                <button onClick={() => setActiveFilter("dog")}>Try Dogs</button>
+                <button onClick={() => setActiveFilter("cat")}>Try Cats</button>
+                <button onClick={() => setSearchQuery("tel aviv")}>
+                  Search "tel aviv"
+                </button>
+              </div>
             </div>
           ) : (
             <div className={styles.feed}>
@@ -498,6 +600,21 @@ function Home() {
                   <div className={styles.info}>
                     <h3 className={styles.name}>{pet.name}</h3>
                     <p className={styles.breed}>{pet.breed}</p>
+                    <div className={styles.statusRow}>
+                      {(() => {
+                        const statusValue = String(pet.status || "").toLowerCase();
+                        const isAvailable = statusValue === "available";
+                        return (
+                      <span
+                        className={`${styles.statusBadge} ${
+                          isAvailable ? styles.statusAvailable : styles.statusPending
+                        }`}
+                      >
+                        {getPetStatusLabel(statusValue)}
+                      </span>
+                        );
+                      })()}
+                    </div>
 
                     <div className={styles.details}>
                       <span className={styles.detail}>
@@ -536,6 +653,11 @@ function Home() {
                     >
                       Adopt {pet.name}
                     </button>
+                    {!isAuthenticated && (
+                      <p className={styles.adoptGuardrail}>
+                        You will need an account to continue.
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -648,6 +770,16 @@ function Home() {
           </div>
         </div>
       )}
+
+      <div
+        className={`${styles.favoriteToast} ${
+          favoriteToast ? styles.favoriteToastVisible : ""
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        {favoriteToast}
+      </div>
 
       <Footer />
     </>
