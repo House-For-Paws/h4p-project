@@ -1,6 +1,8 @@
 /**
- * Registration page — collects profile/account fields and creates user.
- * Includes Terms modal flow: user can open terms and must accept before submit.
+ * =============================================================================
+ * FILE: client/src/pages/Register.jsx
+ * ROLE: Sign-up form + terms acceptance → POST /auth/register
+ * =============================================================================
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +14,11 @@ import styles from "../styles/register.module.css";
 import PawIcon from "../Components/features/PawIcon";
 import TermsModal from "../Components/legal/TermsModal";
 import { notifyAuthTokenChanged } from "../utils/authEvents";
+import {
+  REGISTER_REGEX,
+  getRegisterFieldError,
+  validateRegisterForm,
+} from "../utils/registerValidation";
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -28,6 +35,9 @@ function Register() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [termsModalOpen, setTermsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [formError, setFormError] = useState("");
   const [showcaseImages, setShowcaseImages] = useState([]);
   const [imagePool, setImagePool] = useState([]);
   const [imageSwapTick, setImageSwapTick] = useState(0);
@@ -39,14 +49,47 @@ function Register() {
 
   const navigate = useNavigate();
   const passwordLengthOk = formData.password.length >= 6;
+  const passwordHasLetter = REGISTER_REGEX.passwordLetter.test(formData.password);
+  const passwordHasNumber = REGISTER_REGEX.passwordNumber.test(formData.password);
   const passwordsMatch =
     formData.confirmPassword.length > 0 &&
     formData.password === formData.confirmPassword;
 
   /** Returns an onChange callback for a specific field in formData. */
   const handleChange = (field) => (e) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    const value = e.target.value;
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      if (touched[field] || fieldErrors[field]) {
+        setFieldErrors((prevErrors) => ({
+          ...prevErrors,
+          [field]: getRegisterFieldError(field, value, next),
+          ...(field === "password"
+            ? {
+                confirmPassword: getRegisterFieldError(
+                  "confirmPassword",
+                  next.confirmPassword,
+                  next,
+                ),
+              }
+            : {}),
+        }));
+      }
+      return next;
+    });
+    setFormError("");
   };
+
+  const handleBlur = (field) => () => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    setFieldErrors((prev) => ({
+      ...prev,
+      [field]: getRegisterFieldError(field, formData[field], formData),
+    }));
+  };
+
+  const inputClass = (field) =>
+    `${styles.input}${fieldErrors[field] ? ` ${styles.inputInvalid}` : ""}`;
 
   const pickRandomImages = (images, count = 4) =>
     [...images].sort(() => Math.random() - 0.5).slice(0, count);
@@ -108,13 +151,31 @@ function Register() {
     return () => clearInterval(rotation);
   }, [imagePool]);
 
-  /** Submits registration after terms acceptance check. */
+  /** Submits registration after regex + terms checks. */
   const handleRegister = async () => {
+    const errors = validateRegisterForm(formData);
+    setFieldErrors(errors);
+    setTouched({
+      firstName: true,
+      lastName: true,
+      username: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+      phoneNumber: true,
+    });
+
+    if (Object.keys(errors).length) {
+      setFormError("Please fix the highlighted fields before continuing.");
+      return;
+    }
+
     if (!acceptedTerms) {
       setTermsModalOpen(true);
       return;
     }
 
+    setFormError("");
     setIsSubmitting(true);
 
     try {
@@ -123,7 +184,7 @@ function Register() {
       notifyAuthTokenChanged();
       navigate("/profile");
     } catch (err) {
-      alert(err.response?.data?.message || "Registration failed");
+      setFormError(err.response?.data?.message || "Registration failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -226,24 +287,32 @@ function Register() {
                 <label className={styles.inputLabel}>First Name *</label>
                 <input
                   type="text"
-                  className={styles.input}
+                  className={inputClass("firstName")}
                   placeholder="Your first name"
                   value={formData.firstName}
                   onChange={handleChange("firstName")}
+                  onBlur={handleBlur("firstName")}
                   required
                 />
+                {fieldErrors.firstName && (
+                  <p className={styles.fieldError}>{fieldErrors.firstName}</p>
+                )}
               </div>
 
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>Last Name *</label>
                 <input
                   type="text"
-                  className={styles.input}
+                  className={inputClass("lastName")}
                   placeholder="Your last name"
                   value={formData.lastName}
                   onChange={handleChange("lastName")}
+                  onBlur={handleBlur("lastName")}
                   required
                 />
+                {fieldErrors.lastName && (
+                  <p className={styles.fieldError}>{fieldErrors.lastName}</p>
+                )}
               </div>
             </div>
 
@@ -251,24 +320,32 @@ function Register() {
               <label className={styles.inputLabel}>Username *</label>
               <input
                 type="text"
-                className={styles.input}
+                className={inputClass("username")}
                 placeholder="CatOwner123"
                 value={formData.username}
                 onChange={handleChange("username")}
+                onBlur={handleBlur("username")}
                 required
               />
+              {fieldErrors.username && (
+                <p className={styles.fieldError}>{fieldErrors.username}</p>
+              )}
             </div>
 
             <div className={styles.inputGroup}>
               <label className={styles.inputLabel}>Email *</label>
               <input
                 type="email"
-                className={styles.input}
+                className={inputClass("email")}
                 placeholder="CatOwner123@gmail.com"
                 value={formData.email}
                 onChange={handleChange("email")}
+                onBlur={handleBlur("email")}
                 required
               />
+              {fieldErrors.email && (
+                <p className={styles.fieldError}>{fieldErrors.email}</p>
+              )}
             </div>
 
             <div className={styles.formGrid}>
@@ -276,24 +353,34 @@ function Register() {
                 <label className={styles.inputLabel}>Password *</label>
                 <input
                   type="password"
-                  className={styles.input}
+                  className={inputClass("password")}
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleChange("password")}
+                  onBlur={handleBlur("password")}
                   required
                 />
+                {fieldErrors.password && (
+                  <p className={styles.fieldError}>{fieldErrors.password}</p>
+                )}
               </div>
 
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>Confirm Password *</label>
                 <input
                   type="password"
-                  className={styles.input}
+                  className={inputClass("confirmPassword")}
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange("confirmPassword")}
+                  onBlur={handleBlur("confirmPassword")}
                   required
                 />
+                {fieldErrors.confirmPassword && (
+                  <p className={styles.fieldError}>
+                    {fieldErrors.confirmPassword}
+                  </p>
+                )}
               </div>
             </div>
             <div className={styles.passwordHelperCard}>
@@ -310,6 +397,20 @@ function Register() {
                 </span>
                 <span
                   className={`${styles.passwordCheck} ${
+                    passwordHasLetter ? styles.passwordCheckOk : ""
+                  }`}
+                >
+                  {passwordHasLetter ? "✓" : "•"} Letter
+                </span>
+                <span
+                  className={`${styles.passwordCheck} ${
+                    passwordHasNumber ? styles.passwordCheckOk : ""
+                  }`}
+                >
+                  {passwordHasNumber ? "✓" : "•"} Number
+                </span>
+                <span
+                  className={`${styles.passwordCheck} ${
                     passwordsMatch ? styles.passwordCheckOk : ""
                   }`}
                 >
@@ -323,11 +424,15 @@ function Register() {
                 <label className={styles.inputLabel}>Phone Number</label>
                 <input
                   type="tel"
-                  className={styles.input}
-                  placeholder="+1 (555) 000-0000"
+                  className={inputClass("phoneNumber")}
+                  placeholder="+972 50-000-0000"
                   value={formData.phoneNumber}
                   onChange={handleChange("phoneNumber")}
+                  onBlur={handleBlur("phoneNumber")}
                 />
+                {fieldErrors.phoneNumber && (
+                  <p className={styles.fieldError}>{fieldErrors.phoneNumber}</p>
+                )}
               </div>
 
               <div className={styles.inputGroup}>
@@ -386,6 +491,8 @@ function Register() {
                 </span>
               </label>
             </div>
+
+            {formError && <p className={styles.formError}>{formError}</p>}
 
             <button
               className={styles.registerBtn}

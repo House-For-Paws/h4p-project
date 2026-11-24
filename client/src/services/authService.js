@@ -1,33 +1,26 @@
 /**
- * Thin wrappers around /api/auth REST endpoints — keeps pages free of URL strings.
- * Each call uses shared axios instance (see ./api.js) so JWT interceptor applies.
+ * =============================================================================
+ * FILE: client/src/services/authService.js
+ * ROLE: Wrappers for /api/auth/*
+ * =============================================================================
  */
 import API from "./api";
 
-/** POST /auth/login — body: { email|username, password }; returns { token, user }. */
+// ----- Login / register -----
 export const login = (credentials) => API.post("/auth/login", credentials);
-
-/** POST /auth/register — full signup form payload; returns { token, user }. */
 export const register = (formData) => API.post("/auth/register", formData);
-/** POST /auth/forgot-password — email + new password + confirmation. */
-export const forgotPassword = (payload) => API.post("/auth/forgot-password", payload);
+export const forgotPassword = (payload) =>
+  API.post("/auth/forgot-password", payload);
 
-/** GET /auth/profile — requires Bearer token; returns { user }. */
+// ----- Profile -----
 export const getProfile = () => API.get("/auth/profile");
-
-/** PATCH /auth/profile — partial profile fields; may return refreshed JWT. */
 export const updateProfile = (payload) => API.patch("/auth/profile", payload);
-/** PATCH /auth/change-email — { newEmail, currentPassword }. */
 export const changeEmail = (payload) => API.patch("/auth/change-email", payload);
-/** PATCH /auth/change-password — password rotation. */
 export const changePassword = (payload) =>
   API.patch("/auth/change-password", payload);
-/** PATCH /auth/profile-picture — { imageData } base64 data URL. */
 export const updateProfilePicture = (payload) =>
   API.patch("/auth/profile-picture", payload);
-/** PATCH /auth/notification-settings — boolean toggles. */
 export const updateNotificationSettings = (payload) =>
   API.patch("/auth/notification-settings", payload);
-/** DELETE /auth/account — JSON body with password + confirmation. */
 export const deleteAccount = (payload) =>
   API.delete("/auth/account", { data: payload });

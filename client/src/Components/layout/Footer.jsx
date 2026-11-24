@@ -1,5 +1,8 @@
 /**
- * Site footer — brand columns, social icons, bottom strip with Terms (/eula) + copyright.
+ * =============================================================================
+ * FILE: client/src/Components/layout/Footer.jsx
+ * ROLE: Site footer — brand, links, social, terms (/eula)
+ * =============================================================================
  */
 import { Link } from "react-router-dom";
 import styles from "../../styles/footer.module.css";

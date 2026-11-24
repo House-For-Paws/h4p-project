@@ -1,6 +1,8 @@
 /**
- * Login page — authenticates user and stores JWT in localStorage.
- * Includes accessible forgot-password modal and friendly inline feedback.
+ * =============================================================================
+ * FILE: client/src/pages/Login.jsx
+ * ROLE: Login + forgot-password modal; stores JWT in localStorage
+ * =============================================================================
  */
 import { useEffect, useRef, useState } from "react";
 import { forgotPassword, login } from "../services/authService";
@@ -17,6 +19,13 @@ import {
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { notifyAuthTokenChanged } from "../utils/authEvents";
+import {
+  getLoginFieldError,
+  isLoginIdentifierValid,
+  isLoginPasswordValid,
+  validateForgotPasswordForm,
+  validateLoginForm,
+} from "../utils/loginValidation";
 
 function Login() {
   const rememberedEmail = localStorage.getItem("h4pRememberedEmail") || "";
@@ -27,6 +36,9 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [banNotice, setBanNotice] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -34,6 +46,7 @@ function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");
+  const [resetFieldErrors, setResetFieldErrors] = useState({});
   const [socialMessage, setSocialMessage] = useState("");
 
   const navigate = useNavigate();
@@ -41,8 +54,17 @@ function Login() {
   const modalRef = useRef(null);
   const resetEmailInputRef = useRef(null);
 
-  const isEmailValid = /\S+@\S+\.\S+/.test(email);
-  const canSubmit = isEmailValid && password.trim().length >= 6 && !isLoggingIn;
+  const canSubmit =
+    isLoginIdentifierValid(email) &&
+    isLoginPasswordValid(password) &&
+    !isLoggingIn;
+
+  const updateFieldError = (field, value, extra = {}) => {
+    setFieldErrors((prev) => ({
+      ...prev,
+      [field]: getLoginFieldError(field, value, { email, password, ...extra }),
+    }));
+  };
 
   useEffect(() => {
     if (!socialMessage) {
@@ -99,12 +121,17 @@ function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!canSubmit) {
-      setLoginError("Please enter a valid email and password.");
+    const errors = validateLoginForm({ email, password });
+    setFieldErrors(errors);
+    setTouched({ email: true, password: true });
+
+    if (Object.keys(errors).length) {
+      setLoginError("Please fix the highlighted fields before signing in.");
       return;
     }
 
     setLoginError("");
+    setBanNotice(null);
     setIsLoggingIn(true);
 
     try {
@@ -119,7 +146,17 @@ function Login() {
       notifyAuthTokenChanged();
       navigate("/profile");
     } catch (err) {
-      setLoginError(err.response?.data?.message || "Login failed");
+      const data = err.response?.data;
+      if (data?.banned) {
+        setBanNotice({
+          reason: data.banReason || "Not specified",
+          description: data.banDescription || "",
+        });
+        setLoginError("");
+      } else {
+        setBanNotice(null);
+        setLoginError(data?.message || "Login failed");
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -129,6 +166,7 @@ function Login() {
     setShowForgotModal(true);
     setResetMessage("");
     setResetError("");
+    setResetFieldErrors({});
     setResetEmail(email || "");
   };
 
@@ -137,12 +175,25 @@ function Login() {
     setResetLoading(false);
     setResetMessage("");
     setResetError("");
+    setResetFieldErrors({});
     setNewPassword("");
     setConfirmNewPassword("");
   };
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
+    const errors = validateForgotPasswordForm({
+      resetEmail,
+      newPassword,
+      confirmNewPassword,
+    });
+    setResetFieldErrors(errors);
+
+    if (Object.keys(errors).length) {
+      setResetError("Please fix the highlighted fields.");
+      return;
+    }
+
     setResetLoading(true);
     setResetMessage("");
     setResetError("");
@@ -200,11 +251,27 @@ function Login() {
 
                 <form onSubmit={handleLogin}>
                   <input
-                    type="email"
-                    placeholder="Email address"
+                    type="text"
+                    placeholder="Email or username"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    className={fieldErrors.email ? styles.inputInvalid : undefined}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEmail(value);
+                      setLoginError("");
+                      setBanNotice(null);
+                      if (touched.email || fieldErrors.email) {
+                        updateFieldError("email", value);
+                      }
+                    }}
+                    onBlur={() => {
+                      setTouched((prev) => ({ ...prev, email: true }));
+                      updateFieldError("email", email);
+                    }}
                   />
+                  {fieldErrors.email && (
+                    <p className={styles.fieldError}>{fieldErrors.email}</p>
+                  )}
 
                   <div className={styles.passwordFieldWrap}>
                     <input
@@ -212,7 +279,22 @@ function Login() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      className={
+                        fieldErrors.password ? styles.inputInvalid : undefined
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPassword(value);
+                        setLoginError("");
+                        setBanNotice(null);
+                        if (touched.password || fieldErrors.password) {
+                          updateFieldError("password", value);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, password: true }));
+                        updateFieldError("password", password);
+                      }}
                     />
                     <button
                       type="button"
@@ -223,6 +305,9 @@ function Login() {
                       {showPassword ? <FaEyeSlash /> : <FaEye />}
                     </button>
                   </div>
+                  {fieldErrors.password && (
+                    <p className={styles.fieldError}>{fieldErrors.password}</p>
+                  )}
 
                   <div className={styles.passwordActions}>
                     <label className={styles.remember}>
@@ -247,6 +332,23 @@ function Login() {
                       Forgot password?
                     </button>
                   </div>
+
+                  {banNotice && (
+                    <div className={styles.banNotice} role="alert">
+                      <strong>This account has been banned</strong>
+                      <p>
+                        <span>Reason:</span> {banNotice.reason}
+                      </p>
+                      {banNotice.description ? (
+                        <p className={styles.banDescription}>
+                          {banNotice.description}
+                        </p>
+                      ) : null}
+                      <p className={styles.banSupport}>
+                        Contact support if you think this is a mistake.
+                      </p>
+                    </div>
+                  )}
 
                   {loginError && <p className={styles.loginError}>{loginError}</p>}
 
@@ -327,25 +429,82 @@ function Login() {
                 type="email"
                 placeholder="Email address"
                 value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
+                className={
+                  resetFieldErrors.resetEmail ? styles.inputInvalid : undefined
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setResetEmail(value);
+                  setResetError("");
+                  setResetFieldErrors((prev) => ({
+                    ...prev,
+                    resetEmail: getLoginFieldError("resetEmail", value),
+                  }));
+                }}
                 required
               />
+              {resetFieldErrors.resetEmail && (
+                <p className={styles.fieldError}>{resetFieldErrors.resetEmail}</p>
+              )}
               <input
                 type="password"
                 placeholder="New password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                className={
+                  resetFieldErrors.newPassword ? styles.inputInvalid : undefined
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setNewPassword(value);
+                  setResetError("");
+                  setResetFieldErrors((prev) => ({
+                    ...prev,
+                    newPassword: getLoginFieldError("newPassword", value),
+                    confirmNewPassword: getLoginFieldError(
+                      "confirmNewPassword",
+                      confirmNewPassword,
+                      { newPassword: value },
+                    ),
+                  }));
+                }}
                 required
               />
+              {resetFieldErrors.newPassword && (
+                <p className={styles.fieldError}>
+                  {resetFieldErrors.newPassword}
+                </p>
+              )}
               <input
                 type="password"
                 placeholder="Confirm new password"
                 value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                className={
+                  resetFieldErrors.confirmNewPassword
+                    ? styles.inputInvalid
+                    : undefined
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setConfirmNewPassword(value);
+                  setResetError("");
+                  setResetFieldErrors((prev) => ({
+                    ...prev,
+                    confirmNewPassword: getLoginFieldError(
+                      "confirmNewPassword",
+                      value,
+                      { newPassword },
+                    ),
+                  }));
+                }}
                 required
               />
+              {resetFieldErrors.confirmNewPassword && (
+                <p className={styles.fieldError}>
+                  {resetFieldErrors.confirmNewPassword}
+                </p>
+              )}
               <p className={styles.resetHint}>
-                Use at least 6 characters so your account stays secure.
+                Use at least 6 characters with letters and numbers.
               </p>
 
               {resetError && <p className={styles.resetError}>{resetError}</p>}

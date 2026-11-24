@@ -1,35 +1,54 @@
 /**
- * Favorites tab content — reads liked pet ids from localStorage and resolves full pet cards.
+ * =============================================================================
+ * FILE: client/src/Components/profile/FavoritedPets.jsx
+ * ROLE: Profile tab — pets saved via favorites API (not likes)
+ * =============================================================================
  */
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import styles from "../../styles/favoritedPets.module.css";
-import { getPets } from "../../services/userService";
+import {
+  getMyFavoritePets,
+  togglePetFavorite,
+} from "../../services/userService";
 
 const FavoritedPets = () => {
+  const navigate = useNavigate();
   const [favoritedPets, setFavoritedPets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
     const loadFavoritedPets = async () => {
       try {
-        // Get favorited pet IDs from localStorage
-        const favoritedIds = JSON.parse(localStorage.getItem("favoritedPets") || "[]");
-        
-        if (favoritedIds.length === 0) {
-          setFavoritedPets([]);
-          setLoading(false);
-          return;
+        const response = await getMyFavoritePets();
+        let pets = response.data || [];
+        const existingIds = new Set(pets.map((pet) => Number(pet.id)));
+
+        // One-time migrate leftover localStorage favorites into the API.
+        const legacyIds = JSON.parse(
+          localStorage.getItem("favoritedPets") || "[]",
+        );
+        if (Array.isArray(legacyIds) && legacyIds.length) {
+          const toAdd = legacyIds
+            .map((id) => Number(id))
+            .filter((id) => id && !existingIds.has(id));
+          if (toAdd.length) {
+            await Promise.allSettled(
+              toAdd.map((id) => togglePetFavorite(id)),
+            );
+            const refreshed = await getMyFavoritePets();
+            pets = refreshed.data || [];
+          }
+          localStorage.removeItem("favoritedPets");
         }
 
-        // Get all pets and filter by favorited IDs
-        const response = await getPets({});
-        const allPets = response.data;
-        const filtered = allPets.filter(pet => favoritedIds.includes(pet.id));
-        
-        setFavoritedPets(filtered);
+        setFavoritedPets(pets);
       } catch (err) {
-        setError(err.response?.data?.message || "Failed to load favorited pets");
+        setError(
+          err.response?.data?.message || "Failed to load favorited pets",
+        );
       } finally {
         setLoading(false);
       }
@@ -38,15 +57,18 @@ const FavoritedPets = () => {
     loadFavoritedPets();
   }, []);
 
-  /** Remove/add local like state and persist favorite ids in localStorage. */
-  const toggleLike = (petId) => {
-    const favoritedIds = JSON.parse(localStorage.getItem("favoritedPets") || "[]");
-    const newFavoritedIds = favoritedIds.includes(petId)
-      ? favoritedIds.filter(id => id !== petId)
-      : [...favoritedIds, petId];
-    
-    localStorage.setItem("favoritedPets", JSON.stringify(newFavoritedIds));
-    setFavoritedPets(prev => prev.filter(pet => pet.id !== petId));
+  const removeFavorite = async (petId) => {
+    setBusyId(petId);
+    try {
+      await togglePetFavorite(petId);
+      setFavoritedPets((prev) => prev.filter((pet) => pet.id !== petId));
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Could not remove from favorites",
+      );
+    } finally {
+      setBusyId(null);
+    }
   };
 
   if (loading) {
@@ -60,7 +82,7 @@ const FavoritedPets = () => {
     );
   }
 
-  if (error) {
+  if (error && favoritedPets.length === 0) {
     return (
       <div className={styles.container}>
         <div className={styles.error}>
@@ -75,13 +97,15 @@ const FavoritedPets = () => {
       <div className={styles.container}>
         <div className={styles.empty}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
           </svg>
           <h3>No favorited pets yet</h3>
-          <p>Start browsing and click the heart icon on pets you love!</p>
-          <button 
+          <p>Browse pets and tap the bookmark to save them here.</p>
+          <button
             className={styles.browseBtn}
-            onClick={() => window.location.href = "/"}
+            onClick={() => {
+              window.location.href = "/";
+            }}
           >
             Browse Pets
           </button>
@@ -95,7 +119,8 @@ const FavoritedPets = () => {
       <div className={styles.header}>
         <h2>My Favorited Pets</h2>
         <p className={styles.subtitle}>
-          You have {favoritedPets.length} favorited pet{favoritedPets.length !== 1 ? 's' : ''}
+          You have {favoritedPets.length} favorited pet
+          {favoritedPets.length !== 1 ? "s" : ""}
         </p>
       </div>
 
@@ -112,7 +137,8 @@ const FavoritedPets = () => {
 
               <button
                 className={`${styles.likeBtn} ${styles.liked}`}
-                onClick={() => toggleLike(pet.id)}
+                onClick={() => removeFavorite(pet.id)}
+                disabled={busyId === pet.id}
                 aria-label="Remove from favorites"
               >
                 <svg
@@ -121,13 +147,20 @@ const FavoritedPets = () => {
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                 </svg>
               </button>
 
               <span className={styles.typeBadge}>
                 {pet.type === "dog" ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    width="16"
+                    height="16"
+                  >
                     <path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5" />
                     <path d="M14.267 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5" />
                     <path d="M8 14v.5" />
@@ -136,7 +169,14 @@ const FavoritedPets = () => {
                     <path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306" />
                   </svg>
                 ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    width="16"
+                    height="16"
+                  >
                     <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3.1-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z" />
                     <path d="M8 14v.5" />
                     <path d="M16 14v.5" />
@@ -147,7 +187,7 @@ const FavoritedPets = () => {
 
               <span
                 className={styles.genderBadge}
-                data-gender={pet.gender.toLowerCase()}
+                data-gender={String(pet.gender || "").toLowerCase()}
               >
                 {pet.gender}
               </span>
@@ -159,14 +199,28 @@ const FavoritedPets = () => {
 
               <div className={styles.details}>
                 <span className={styles.detail}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    width="14"
+                    height="14"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
                   {pet.age}
                 </span>
                 <span className={styles.detail}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    width="14"
+                    height="14"
+                  >
                     <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
@@ -176,7 +230,7 @@ const FavoritedPets = () => {
 
               <button
                 className={styles.adoptBtn}
-                onClick={() => window.location.href = `/adopt/${pet.id}`}
+                onClick={() => navigate(`/adopt/${pet.id}`)}
               >
                 Adopt {pet.name}
               </button>

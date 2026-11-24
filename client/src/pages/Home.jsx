@@ -1,6 +1,10 @@
 /**
- * Home page — pet discovery feed with search/filter + like persistence.
- * Shows login popup for unauthenticated adoption actions.
+ * =============================================================================
+ * FILE: client/src/pages/Home.jsx
+ * ROLE: Browse adoptable pets (filter / search / sort / like / favorite)
+ * =============================================================================
+ * Sections: STATE | LOAD PETS | LIKE | FAVORITE | ADOPT / LOGIN POPUP | RENDER
+ * =============================================================================
  */
 import { useState, useEffect } from "react";
 import styles from "../styles/home.module.css";
@@ -8,9 +12,14 @@ import Navbar from "../Components/layout/Navbar";
 import Footer from "../Components/layout/Footer";
 import { useNavigate } from "react-router-dom";
 import { login } from "../services/authService";
-import { getPets } from "../services/userService";
+import {
+  getPets,
+  togglePetFavorite,
+  togglePetLike,
+} from "../services/userService";
 import { getAvailablePetsCount } from "../services/statsService";
 import { notifyAuthTokenChanged } from "../utils/authEvents";
+import PetImageCarousel from "../Components/features/PetImageCarousel";
 
 const filters = [
   { id: "all", label: "All Pets", icon: "all" },
@@ -18,16 +27,21 @@ const filters = [
   { id: "cat", label: "Cats", icon: "cat" },
 ];
 
+const sortOptions = [
+  { id: "", label: "Default" },
+  { id: "likes", label: "Most liked" },
+  { id: "comments", label: "Most comments" },
+  { id: "views", label: "Most viewed" },
+];
+
 function Home() {
   const [activeFilter, setActiveFilter] = useState(
     () => localStorage.getItem("homeActiveFilter") || "all",
   );
+  const [sortBy, setSortBy] = useState(
+    () => localStorage.getItem("homeSortBy") || "",
+  );
   const [pets, setPets] = useState([]);
-  const [likedPets, setLikedPets] = useState(() => {
-    // Initialize from localStorage
-    const saved = localStorage.getItem("favoritedPets");
-    return saved ? JSON.parse(saved) : [];
-  });
   const [showPopup, setShowPopup] = useState(false);
   const [searchQuery, setSearchQuery] = useState(
     () => localStorage.getItem("homeSearchQuery") || "",
@@ -47,12 +61,19 @@ function Home() {
   const navigate = useNavigate();
   const hasActiveSearch = searchQuery.trim().length > 0;
   const hasActiveTypeFilter = activeFilter !== "all";
-  const hasActiveFilters = hasActiveSearch || hasActiveTypeFilter;
+  const hasActiveSort = Boolean(sortBy);
+  const hasActiveFilters =
+    hasActiveSearch || hasActiveTypeFilter || hasActiveSort;
 
   const resetFilters = () => {
     setSearchQuery("");
     setActiveFilter("all");
+    setSortBy("");
   };
+
+  useEffect(() => {
+    localStorage.setItem("homeSortBy", sortBy);
+  }, [sortBy]);
 
   useEffect(() => {
     const loadPets = async () => {
@@ -63,6 +84,7 @@ function Home() {
         const res = await getPets({
           type: activeFilter,
           search: searchQuery,
+          ...(sortBy ? { sort: sortBy } : {}),
         });
         setPets(res.data);
       } catch (err) {
@@ -73,7 +95,7 @@ function Home() {
     };
 
     loadPets();
-  }, [activeFilter, searchQuery]);
+  }, [activeFilter, searchQuery, sortBy]);
 
   useEffect(() => {
     const loadAvailablePetsCount = async () => {
@@ -146,25 +168,108 @@ function Home() {
     setLoginError("");
   };
 
-  /** Toggle favorite pet id in localStorage + state. */
-  const toggleLike = (id) => {
-    setLikedPets((prev) => {
-      const isAlreadyLiked = prev.includes(id);
-      const newLikedPets = isAlreadyLiked
-        ? prev.filter((petId) => petId !== id)
-        : [...prev, id];
+  /** Toggle like (heart) — engagement count only; not favorites. */
+  // ======================== LIKE ========================
+  const toggleLike = async (id) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setShowPopup(true);
+      return;
+    }
 
-      // Save to localStorage
-      localStorage.setItem("favoritedPets", JSON.stringify(newLikedPets));
-      setFavoriteToast(
-        isAlreadyLiked ? "Removed from favorites" : "Saved to favorites",
+    const target = pets.find((pet) => pet.id === id);
+    const wasLiked = Boolean(target?.likedByMe);
+    setPets((prev) =>
+      prev.map((pet) =>
+        pet.id === id
+          ? {
+              ...pet,
+              likedByMe: !wasLiked,
+              likeCount: Math.max(
+                0,
+                Number(pet.likeCount || 0) + (wasLiked ? -1 : 1),
+              ),
+            }
+          : pet,
+      ),
+    );
+
+    try {
+      const res = await togglePetLike(id);
+      setPets((prev) =>
+        prev.map((pet) =>
+          pet.id === id
+            ? {
+                ...pet,
+                likedByMe: Boolean(res.data?.liked),
+                likeCount: Number(res.data?.likeCount ?? pet.likeCount),
+              }
+            : pet,
+        ),
       );
+      setFavoriteToast(res.data?.liked ? "Liked" : "Like removed");
+    } catch (err) {
+      setPets((prev) =>
+        prev.map((pet) =>
+          pet.id === id
+            ? {
+                ...pet,
+                likedByMe: wasLiked,
+                likeCount: Math.max(
+                  0,
+                  Number(pet.likeCount || 0) + (wasLiked ? 1 : -1),
+                ),
+              }
+            : pet,
+        ),
+      );
+      setFavoriteToast(err.response?.data?.message || "Could not update like");
+    }
+  };
 
-      return newLikedPets;
-    });
+  // ======================== FAVORITE ========================
+  /** Bookmark — saved list in profile; independent of likes. */
+  const toggleFavorite = async (id) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setShowPopup(true);
+      return;
+    }
+
+    const target = pets.find((pet) => pet.id === id);
+    const wasFavorited = Boolean(target?.favoritedByMe);
+    setPets((prev) =>
+      prev.map((pet) =>
+        pet.id === id ? { ...pet, favoritedByMe: !wasFavorited } : pet,
+      ),
+    );
+
+    try {
+      const res = await togglePetFavorite(id);
+      setPets((prev) =>
+        prev.map((pet) =>
+          pet.id === id
+            ? { ...pet, favoritedByMe: Boolean(res.data?.favorited) }
+            : pet,
+        ),
+      );
+      setFavoriteToast(
+        res.data?.favorited ? "Saved to favorites" : "Removed from favorites",
+      );
+    } catch (err) {
+      setPets((prev) =>
+        prev.map((pet) =>
+          pet.id === id ? { ...pet, favoritedByMe: wasFavorited } : pet,
+        ),
+      );
+      setFavoriteToast(
+        err.response?.data?.message || "Could not update favorite",
+      );
+    }
   };
 
   /** Start adoption flow; enforce sign-in first. */
+  // ======================== NAV / LOGIN POPUP ========================
   const handleAdoptClick = (pet) => {
     const token = localStorage.getItem("token");
 
@@ -174,6 +279,16 @@ function Home() {
     }
 
     navigate(`/adopt/${pet.id}`);
+  };
+
+  /** Open create-post page; guests must sign in first. */
+  const handleCreatePostClick = () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setShowPopup(true);
+      return;
+    }
+    navigate("/create-post");
   };
 
   /** Login popup submit handler (inline auth from home page). */
@@ -195,7 +310,16 @@ function Home() {
       setEmail("");
       setPassword("");
     } catch (err) {
-      setLoginError(err.response?.data?.message || "Login failed");
+      const data = err.response?.data;
+      if (data?.banned) {
+        const reason = data.banReason || "Not specified";
+        const detail = data.banDescription
+          ? ` — ${data.banDescription}`
+          : "";
+        setLoginError(`This account has been banned. Reason: ${reason}${detail}`);
+      } else {
+        setLoginError(data?.message || "Login failed");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -383,17 +507,16 @@ function Home() {
             <div className={styles.futurePostText}>
               <h3>Create Adoption Post</h3>
               <p>
-                Coming soon: publish a pet profile with photos, health details, and
-                contact options for adopters.
+                Publish a pet profile with photos and details so adopters can
+                find them faster.
               </p>
             </div>
             <button
               type="button"
               className={styles.futurePostButton}
-              disabled
-              title="Coming soon"
+              onClick={handleCreatePostClick}
             >
-              Coming Soon
+              Create Post
             </button>
           </div>
 
@@ -452,6 +575,24 @@ function Home() {
                 </button>
               ))}
             </div>
+
+            <div className={styles.sortRow}>
+              <span className={styles.sortLabel}>Sort by</span>
+              <div className={styles.sortOptions}>
+                {sortOptions.map((option) => (
+                  <button
+                    key={option.id || "default"}
+                    type="button"
+                    className={`${styles.sortBtn} ${
+                      sortBy === option.id ? styles.sortBtnActive : ""
+                    }`}
+                    onClick={() => setSortBy(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {hasActiveFilters && (
@@ -470,6 +611,15 @@ function Home() {
                   onClick={() => setSearchQuery("")}
                 >
                   Search: {searchQuery} ✕
+                </button>
+              )}
+              {hasActiveSort && (
+                <button
+                  className={styles.filterChip}
+                  onClick={() => setSortBy("")}
+                >
+                  Sort:{" "}
+                  {sortOptions.find((o) => o.id === sortBy)?.label || sortBy} ✕
                 </button>
               )}
               <button className={styles.clearAllChip} onClick={resetFilters}>
@@ -523,33 +673,53 @@ function Home() {
               {pets.map((pet) => (
                 <div key={pet.id} className={styles.card}>
                   <div className={styles.imageWrapper}>
-                    <img
-                      src={pet.image}
+                    <PetImageCarousel
+                      images={
+                        Array.isArray(pet.images) && pet.images.length
+                          ? pet.images
+                          : [pet.image].filter(Boolean)
+                      }
                       alt={pet.name}
-                      className={styles.image}
-                      loading="lazy"
                     />
 
-                    <button
-                      className={`${styles.likeBtn} ${
-                        likedPets.includes(pet.id) ? styles.liked : ""
-                      }`}
-                      onClick={() => toggleLike(pet.id)}
-                      aria-label={
-                        likedPets.includes(pet.id) ? "Unlike" : "Like"
-                      }
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill={
-                          likedPets.includes(pet.id) ? "currentColor" : "none"
+                    <div className={styles.cardActions}>
+                      <button
+                        className={`${styles.favoriteBtn} ${
+                          pet.favoritedByMe ? styles.favorited : ""
+                        }`}
+                        onClick={() => toggleFavorite(pet.id)}
+                        aria-label={
+                          pet.favoritedByMe
+                            ? "Remove from favorites"
+                            : "Add to favorites"
                         }
-                        stroke="currentColor"
-                        strokeWidth="2"
                       >
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                      </svg>
-                    </button>
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill={pet.favoritedByMe ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </button>
+                      <button
+                        className={`${styles.likeBtn} ${
+                          pet.likedByMe ? styles.liked : ""
+                        }`}
+                        onClick={() => toggleLike(pet.id)}
+                        aria-label={pet.likedByMe ? "Unlike" : "Like"}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill={pet.likedByMe ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                      </button>
+                    </div>
 
                     <span className={styles.typeBadge}>
                       {pet.type === "dog" ? (
@@ -644,6 +814,28 @@ function Home() {
                           <circle cx="12" cy="10" r="3" />
                         </svg>
                         {pet.location}
+                      </span>
+                    </div>
+
+                    <div className={styles.engagementRow}>
+                      <span title="Likes" className={styles.engagementStat}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                        {Number(pet.likeCount || 0)}
+                      </span>
+                      <span title="Comments" className={styles.engagementStat}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                        </svg>
+                        {Number(pet.commentCount || 0)}
+                      </span>
+                      <span title="Views" className={styles.engagementStat}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        {Number(pet.viewCount || 0)}
                       </span>
                     </div>
 

@@ -1,0 +1,83 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.chip_comment {
+  background: #e8f4fc;
+  color: #1e88c8;
+}
+
+.chip_like {
+  background: #fde8ef;
+  color: #d81b60;
+}
+
+.chip_adopt {
+  background: #fff0d9;
+  color: #e67a00;
+}
+
+.chip_update {
+  background: #e8f6ee;
+  color: #2e7d4f;
+}
+
+.chip_warning {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.chip_report {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.chip_default {
+  background: #f3efe9;
+  color: #8a7460;
+}
+
+.label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #9a7d5d;
+}
+
+.tone_comment .label {
+  color: #1e88c8;
+}
+
+.tone_like .label {
+  color: #d81b60;
+}
+
+.tone_adopt .label {
+  color: #e67a00;
+}
+
+.tone_update .label {
+  color: #2e7d4f;
+}
+
+.tone_warning .label {
+  color: #c62828;
+}
+
+.tone_report .label {
+  color: #ef6c00;
+}

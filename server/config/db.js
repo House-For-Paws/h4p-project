@@ -1,16 +1,24 @@
 /**
- * MySQL connection pool + bootstrap.
- * - Creates DB if missing, applies schema.sql, seeds demo pets when empty.
- * Exports: query (SELECT), run (INSERT/UPDATE/DELETE), initDb, getPool.
+ * =============================================================================
+ * FILE: server/config/db.js
+ * ROLE: MySQL pool, schema bootstrap, and query helpers
+ * =============================================================================
+ * What to find here:
+ *   - initDb()     — create DB, apply schema.sql, seed pets
+ *   - query()      — SELECT helpers
+ *   - run()        — INSERT / UPDATE / DELETE helpers
+ *   - getPool()    — raw pool access
+ *   - seedPets()   — demo data when pets table is empty
+ * =============================================================================
  */
 const fs = require("fs");
 const path = require("path");
-const mysql = require("mysql2/promise"); // Promise-based driver for async/await
+const mysql = require("mysql2/promise");
 
-const DB_NAME = process.env.DB_NAME || "h4p"; // Logical database name
-const SCHEMA_FILE = path.join(__dirname, "..", "sql", "schema.sql"); // DDL + tables
+// ======================== CONFIG ========================
+const DB_NAME = process.env.DB_NAME || "h4p";
+const SCHEMA_FILE = path.join(__dirname, "..", "sql", "schema.sql");
 
-/** Env-driven connection settings shared by setup connection + pool. */
 const baseConfig = {
   host: process.env.DB_HOST || "localhost",
   port: Number(process.env.DB_PORT || 3306),
@@ -21,10 +29,11 @@ const baseConfig = {
   queueLimit: 0,
 };
 
-/** Shared pool after initDb(); never use before initialization. */
+/** Shared pool — only valid after initDb(). */
 let pool;
 
-/** Seed data inserted only when pets table is empty (first boot). */
+// ======================== SEED DATA ========================
+/** Demo pets inserted only when the pets table is empty. */
 const initialPets = [
   {
     name: "Max",
@@ -33,6 +42,11 @@ const initialPets = [
     location: "Tel Aviv",
     type: "dog",
     image: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400",
+      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400",
+      "https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=400",
+    ],
     gender: "Male",
     status: "available",
   },
@@ -43,6 +57,11 @@ const initialPets = [
     location: "Haifa",
     type: "cat",
     image: "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400",
+      "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400",
+      "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400",
+    ],
     gender: "Female",
     status: "available",
   },
@@ -53,6 +72,11 @@ const initialPets = [
     location: "Jerusalem",
     type: "dog",
     image: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400",
+      "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400",
+      "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=400",
+    ],
     gender: "Male",
     status: "available",
   },
@@ -63,6 +87,11 @@ const initialPets = [
     location: "Tel Aviv",
     type: "cat",
     image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400",
+      "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400",
+      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400",
+    ],
     gender: "Male",
     status: "available",
   },
@@ -73,6 +102,11 @@ const initialPets = [
     location: "Eilat",
     type: "dog",
     image: "https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=400",
+      "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400",
+      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400",
+    ],
     gender: "Female",
     status: "available",
   },
@@ -83,6 +117,11 @@ const initialPets = [
     location: "Haifa",
     type: "cat",
     image: "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400",
+      "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400",
+      "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400",
+    ],
     gender: "Male",
     status: "available",
   },
@@ -93,6 +132,11 @@ const initialPets = [
     location: "Tel Aviv",
     type: "dog",
     image: "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=400",
+      "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400",
+      "https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=400",
+    ],
     gender: "Male",
     status: "available",
   },
@@ -103,26 +147,37 @@ const initialPets = [
     location: "Haifa",
     type: "cat",
     image: "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400",
+    images: [
+      "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400",
+      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400",
+      "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400",
+    ],
     gender: "Female",
     status: "available",
   },
 ];
 
-/**
- * Escape MySQL backtick identifiers safely (database name in CREATE DATABASE).
- * @param {string} identifier
- * @returns {string}
- */
+const EXTRA_IMAGES_BY_TYPE = {
+  dog: [
+    "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400",
+    "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400",
+    "https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=400",
+    "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=400",
+  ],
+  cat: [
+    "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400",
+    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400",
+    "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400",
+    "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400",
+  ],
+};
+
+// ======================== HELPERS ========================
 function quoteIdentifier(identifier) {
   return `\`${String(identifier).replace(/`/g, "``")}\``;
 }
 
-/**
- * Run a prepared SELECT (or any statement returning rows).
- * @param {string} sql — SQL with ? placeholders
- * @param {any[]} params — bound values
- * @returns {Promise<any[]>} row array
- */
+/** SELECT helper — returns row array. */
 async function query(sql, params = []) {
   if (!pool) {
     throw new Error("Database has not been initialized");
@@ -132,11 +187,7 @@ async function query(sql, params = []) {
   return rows;
 }
 
-/**
- * Run INSERT/UPDATE/DELETE; returns driver result (insertId, affectedRows, etc.).
- * @param {string} sql
- * @param {any[]} params
- */
+/** INSERT / UPDATE / DELETE helper — returns driver result. */
 async function run(sql, params = []) {
   if (!pool) {
     throw new Error("Database has not been initialized");
@@ -146,7 +197,14 @@ async function run(sql, params = []) {
   return result;
 }
 
-/** Insert demo pets if table has zero rows (idempotent). */
+/** Build a short 3-image gallery from cover + type pool. */
+function buildGallery(coverImage, type) {
+  const pool = EXTRA_IMAGES_BY_TYPE[String(type || "").toLowerCase()] || [];
+  const gallery = [coverImage, ...pool].filter(Boolean);
+  return [...new Set(gallery)].slice(0, 3);
+}
+
+// ======================== SEED / BACKFILL ========================
 async function seedPets() {
   const rows = await query("SELECT COUNT(*) AS count FROM pets");
   if (rows[0].count > 0) {
@@ -160,23 +218,67 @@ async function seedPets() {
     pet.location,
     pet.type,
     pet.image,
+    JSON.stringify(pet.images || buildGallery(pet.image, pet.type)),
     pet.gender,
     pet.status,
   ]);
 
   await pool.query(
     `
-      INSERT INTO pets (name, breed, age, location, type, image, gender, status)
+      INSERT INTO pets (name, breed, age, location, type, image, images, gender, status)
       VALUES ?
     `,
     [values],
   );
 }
 
-/**
- * Full startup: create DB, connect pool, execute schema.sql, seed pets.
- * Must succeed before app listens on PORT.
- */
+/** Repair seed-pet galleries; does not overwrite real user single-photo posts. */
+async function backfillPetImages() {
+  const pets = await query(
+    "SELECT id, name, type, image, images FROM pets",
+  );
+
+  for (const pet of pets) {
+    let current = [];
+    let parseFailed = false;
+    if (pet.images) {
+      try {
+        const parsed = JSON.parse(
+          Buffer.isBuffer(pet.images) ? pet.images.toString("utf8") : pet.images,
+        );
+        current = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        current = [];
+        parseFailed = true;
+      }
+    }
+
+    if (Array.isArray(current) && current.length > 1) {
+      continue;
+    }
+
+    const seeded = initialPets.find(
+      (p) => p.name.toLowerCase() === String(pet.name || "").toLowerCase(),
+    );
+
+    if (!seeded && !parseFailed) {
+      continue;
+    }
+
+    const gallery =
+      seeded?.images ||
+      buildGallery(pet.image || current[0] || "", pet.type);
+
+    await run("UPDATE pets SET images = ?, image = ? WHERE id = ?", [
+      JSON.stringify(gallery),
+      gallery[0] || pet.image || "",
+      pet.id,
+    ]);
+  }
+}
+
+// ======================== INIT ========================
+/** Create DB → open pool → apply schema.sql → seed. Call before listen(). */
 async function initDb() {
   const setupConnection = await mysql.createConnection(baseConfig);
   await setupConnection.query(
@@ -193,9 +295,9 @@ async function initDb() {
 
   await pool.query(fs.readFileSync(SCHEMA_FILE, "utf8"));
   await seedPets();
+  await backfillPetImages();
 }
 
-/** Accessor for raw mysql pool (transactions); throws if initDb not called. */
 function getPool() {
   if (!pool) {
     throw new Error("Database has not been initialized");
@@ -204,6 +306,7 @@ function getPool() {
   return pool;
 }
 
+// ======================== EXPORTS ========================
 module.exports = {
   initDb,
   getPool,

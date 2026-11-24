@@ -1,24 +1,36 @@
 /**
- * server/app.js — Express API bootstrap for House For Paws (H4P).
- * - Loads env (.env), enables CORS + JSON parsing, mounts /api/* routers.
- * - Starts HTTP listener only when run directly (node app.js); exports `app` for tests.
+ * =============================================================================
+ * FILE: server/app.js
+ * ROLE: Express API entry point for House For Paws (H4P)
+ * =============================================================================
+ * What to find here:
+ *   - CORS + JSON body setup
+ *   - /api/* route mounts
+ *   - 404 / error handlers
+ *   - Server listen (after DB init)
+ * =============================================================================
  */
 require("dotenv").config();
 
-const express = require("express"); // Web framework
-const cors = require("cors"); // Cross-origin requests from Vite dev server
+// ======================== IMPORTS ========================
+const express = require("express");
+const cors = require("cors");
 
-const { initDb } = require("./config/db"); // MySQL pool + schema apply
+const { initDb } = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const petRoutes = require("./routes/petRoutes");
+const applicationRoutes = require("./routes/applicationRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const postRoutes = require("./routes/postRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
-const app = express(); // Single Express application instance
+const app = express();
 
-/** Allowed browser origins for cookie-less JWT API calls from the React client. */
+// ======================== CORS ========================
+/** Allowed browser origins for JWT API calls from the React client. */
 const defaultOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -28,13 +40,11 @@ if (process.env.CLIENT_URL) {
 }
 
 /**
- * Dynamic CORS policy: allow configured origins; in dev also allow any localhost port.
- * @param {string|undefined} origin — Request Origin header (missing for same-origin tools).
- * @param {function} callback — (err, allowBoolean)
+ * Dynamic CORS: allow configured origins; in dev also allow any localhost port.
  */
 function corsOrigin(origin, callback) {
   if (!origin) {
-    return callback(null, true); // Non-browser clients (curl, Postman)
+    return callback(null, true);
   }
   if (defaultOrigins.includes(origin)) {
     return callback(null, true);
@@ -43,7 +53,7 @@ function corsOrigin(origin, callback) {
     process.env.NODE_ENV !== "production" &&
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
   ) {
-    return callback(null, true); // Vite may use random port in dev
+    return callback(null, true);
   }
   callback(null, false);
 }
@@ -56,13 +66,15 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
-/** Parse JSON bodies (large limit for base64 profile images). */
+
+// ======================== BODY PARSER ========================
+/** Large limit supports base64 profile / pet images. */
 app.use(express.json({ limit: "12mb" }));
 
-/** Bump when auth/settings behavior changes (helps confirm you’re on fresh API code). */
 const API_REVISION = "2026-05-password-settings-no-email-otp";
 
-/** Root health/info endpoint — lists mounted API prefixes. */
+// ======================== HEALTH CHECK ========================
+/** GET / — quick API status + mounted prefixes. */
 app.get("/", (req, res) => {
   res.json({
     message: "H4P API is running",
@@ -74,34 +86,39 @@ app.get("/", (req, res) => {
       "/api/pets",
       "/api/posts",
       "/api/comments",
+      "/api/applications",
+      "/api/notifications",
+      "/api/reports",
     ],
   });
 });
 
-// REST API route prefixes — each file in routes/*.js maps HTTP verbs to controllers.
+// ======================== API ROUTES ========================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/pets", petRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
+app.use("/api/applications", applicationRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/reports", reportRoutes);
 app.use("/api/admin", adminRoutes);
 console.log("ADMIN ROUTES REGISTERED");
 
-/** 404 handler — unknown path under this Express app. */
+// ======================== ERROR HANDLERS ========================
 app.use((req, res) => {
   console.log("404 NOT FOUND:", req.method, req.url);
   res.status(404).json({ message: "Route not found" });
 });
 
-/** Global error handler — uncaught exceptions from controllers/middleware. */
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ message: "Server error" });
 });
 
+// ======================== START SERVER ========================
 const PORT = process.env.PORT || 5000;
 
-// Only listen when executed directly; tests can require(app) without binding a port.
 if (require.main === module) {
   initDb()
     .then(() => {

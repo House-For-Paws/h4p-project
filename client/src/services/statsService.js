@@ -1,4 +1,9 @@
-/** Public-ish metrics — available-count is unauthenticated marketing banner helper. */
+/**
+ * =============================================================================
+ * FILE: client/src/services/statsService.js
+ * ROLE: Public available-pets count (home banner)
+ * =============================================================================
+ */
 import api from "./api";
 
 export const getAvailablePetsCount = async () => {

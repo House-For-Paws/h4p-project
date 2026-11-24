@@ -1,6 +1,8 @@
 /**
- * Reusable paw mark icon with optional orange circle container.
- * Used in Navbar/Footer and auth cards for consistent branding.
+ * =============================================================================
+ * FILE: client/src/Components/features/PawIcon.jsx
+ * ROLE: Brand paw icon (Navbar / Footer / auth cards)
+ * =============================================================================
  */
 import styles from "../../styles/pawIcon.module.css";
 import { PawPrint } from "lucide-react";

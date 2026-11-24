@@ -1,12 +1,19 @@
 /**
- * authController — /api/auth/* handlers: register, login, profile CRUD, security settings.
- * Uses: MySQL (users), JWT (generateToken), PBKDF2 (hashPassword/verifyPassword).
- * Never return password hash to client — use publicUser().
+ * =============================================================================
+ * FILE: server/controllers/authController.js
+ * ROLE: Auth + account handlers for /api/auth/*
+ * =============================================================================
+ * Sections (search these titles):
+ *   HELPERS | REGISTER | LOGIN | FORGOT PASSWORD | PROMOTE
+ *   PROFILE | UPDATE PROFILE | CHANGE EMAIL / PASSWORD
+ *   PROFILE PICTURE | NOTIFICATION SETTINGS | DELETE ACCOUNT
+ * =============================================================================
  */
 const { query, run } = require("../config/db");
 const { generateToken } = require("../utils/generateToken");
 const { hashPassword, verifyPassword } = require("../utils/password");
 
+// ======================== HELPERS ========================
 /** Normalize email for storage and lookup (lowercase, trim). */
 function normalizeEmail(email) {
   return String(email || "")
@@ -20,9 +27,8 @@ function publicUser(user) {
   return safeUser;
 }
 
-/**
- * POST /register — validate body, ensure unique email/username, INSERT user, return JWT.
- */
+// ======================== REGISTER ========================
+/** POST /register — validate, insert user, return JWT. */
 exports.register = async (req, res, next) => {
   const {
     username,
@@ -39,11 +45,42 @@ exports.register = async (req, res, next) => {
 
   const cleanEmail = normalizeEmail(email);
   const cleanUsername = String(username || "").trim();
+  const cleanFirstName = String(firstName || "").trim();
+  const cleanLastName = String(lastName || "").trim();
+  const cleanPhone = String(phoneNumber || phone || "").trim();
+
+  const NAME_REGEX = /^[A-Za-z\u0590-\u05FF][A-Za-z\u0590-\u05FF\s'-]{1,49}$/;
+  const USERNAME_REGEX = /^[A-Za-z][A-Za-z0-9_]{2,19}$/;
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const PHONE_REGEX = /^\+?[0-9\s\-()]{7,20}$/;
 
   if (!cleanUsername || !cleanEmail || !password) {
     return res
       .status(400)
       .json({ message: "Username, email, and password are required" });
+  }
+
+  if (!cleanFirstName || !NAME_REGEX.test(cleanFirstName)) {
+    return res.status(400).json({
+      message: "First name must be 2–50 letters (spaces, - and ' allowed)",
+    });
+  }
+
+  if (!cleanLastName || !NAME_REGEX.test(cleanLastName)) {
+    return res.status(400).json({
+      message: "Last name must be 2–50 letters (spaces, - and ' allowed)",
+    });
+  }
+
+  if (!USERNAME_REGEX.test(cleanUsername)) {
+    return res.status(400).json({
+      message:
+        "Username must be 3–20 chars, start with a letter (A–Z, 0–9, _)",
+    });
+  }
+
+  if (!EMAIL_REGEX.test(cleanEmail)) {
+    return res.status(400).json({ message: "Enter a valid email address" });
   }
 
   if (confirmPassword && password !== confirmPassword) {
@@ -54,6 +91,18 @@ exports.register = async (req, res, next) => {
     return res
       .status(400)
       .json({ message: "Password must be at least 6 characters" });
+  }
+
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return res.status(400).json({
+      message: "Password must include at least one letter and one number",
+    });
+  }
+
+  if (cleanPhone && !PHONE_REGEX.test(cleanPhone)) {
+    return res.status(400).json({
+      message: "Use a valid phone number (7–20 digits, optional + - ( ))",
+    });
   }
 
   try {
@@ -77,10 +126,10 @@ exports.register = async (req, res, next) => {
         cleanUsername,
         cleanEmail,
         hashPassword(password),
-        phoneNumber || phone || "",
+        cleanPhone,
         birthday || "",
-        firstName || "",
-        lastName || "",
+        cleanFirstName,
+        cleanLastName,
         gender || "",
         "user",
         createdAt,
@@ -91,10 +140,10 @@ exports.register = async (req, res, next) => {
       id: result.insertId,
       username: cleanUsername,
       email: cleanEmail,
-      phone: phoneNumber || phone || "",
+      phone: cleanPhone,
       birthday: birthday || "",
-      firstName: firstName || "",
-      lastName: lastName || "",
+      firstName: cleanFirstName,
+      lastName: cleanLastName,
       gender: gender || "",
       role: "user",
       createdAt,
@@ -113,14 +162,29 @@ exports.register = async (req, res, next) => {
 /**
  * POST /login — find user by email OR username (same field), verify password, return JWT.
  */
+// ======================== LOGIN ========================
 exports.login = async (req, res, next) => {
   const { email, username, password } = req.body;
   const login = normalizeEmail(email || username);
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const USERNAME_REGEX = /^[A-Za-z][A-Za-z0-9_]{2,19}$/;
 
   if (!login || !password) {
     return res
       .status(400)
       .json({ message: "Email or username and password are required" });
+  }
+
+  if (!EMAIL_REGEX.test(login) && !USERNAME_REGEX.test(login)) {
+    return res
+      .status(400)
+      .json({ message: "Enter a valid email or username" });
+  }
+
+  if (password.length < 6) {
+    return res
+      .status(400)
+      .json({ message: "Password must be at least 6 characters" });
   }
 
   try {
@@ -132,6 +196,17 @@ exports.login = async (req, res, next) => {
 
     if (!user || !verifyPassword(password, user.password)) {
       return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    if (Number(user.isBanned) === 1) {
+      const reason = String(user.banReason || "").trim();
+      const detail = String(user.banDescription || "").trim();
+      return res.status(403).json({
+        message: "This account has been banned.",
+        banned: true,
+        banReason: reason || null,
+        banDescription: detail || null,
+      });
     }
 
     res.json({
@@ -148,9 +223,11 @@ exports.login = async (req, res, next) => {
  * POST /forgot-password — demo reset flow by email (no OTP yet).
  * Validates email and new password, updates stored hash for matching user.
  */
+// ======================== FORGOT PASSWORD ========================
 exports.forgotPassword = async (req, res, next) => {
   const { email, newPassword, confirmNewPassword } = req.body;
   const cleanEmail = normalizeEmail(email);
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
   if (!cleanEmail || !newPassword || !confirmNewPassword) {
     return res
@@ -158,10 +235,20 @@ exports.forgotPassword = async (req, res, next) => {
       .json({ message: "Email, new password, and confirmation are required" });
   }
 
+  if (!EMAIL_REGEX.test(cleanEmail)) {
+    return res.status(400).json({ message: "Enter a valid email address" });
+  }
+
   if (newPassword.length < 6) {
     return res
       .status(400)
       .json({ message: "New password must be at least 6 characters" });
+  }
+
+  if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    return res.status(400).json({
+      message: "Password must include at least one letter and one number",
+    });
   }
 
   if (String(newPassword) !== String(confirmNewPassword)) {
@@ -192,6 +279,7 @@ exports.forgotPassword = async (req, res, next) => {
 /**
  * POST /promote — bootstraps admin role given ADMIN_SECRET env + target email (no user JWT).
  */
+// ======================== PROMOTE (ADMIN SECRET) ========================
 exports.promote = async (req, res, next) => {
   const { email, secret } = req.body;
   const cleanEmail = normalizeEmail(email);
@@ -223,6 +311,7 @@ exports.promote = async (req, res, next) => {
 /**
  * GET /profile — full user row for authenticated user (req.user.id from JWT middleware).
  */
+// ======================== PROFILE ========================
 exports.profile = async (req, res, next) => {
   try {
     const users = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [
@@ -243,6 +332,7 @@ exports.profile = async (req, res, next) => {
 /**
  * PATCH /profile — update editable fields; issues NEW JWT so client replaces stale token.
  */
+// ======================== UPDATE PROFILE ========================
 exports.updateProfile = async (req, res, next) => {
   const { firstName, lastName, phone, gender, birthday } = req.body;
 
@@ -297,6 +387,7 @@ exports.updateProfile = async (req, res, next) => {
 /**
  * PATCH /change-email — verifies current password, ensures new email unique, updates + new JWT.
  */
+// ======================== CHANGE EMAIL ========================
 exports.changeEmail = async (req, res, next) => {
   const { newEmail, currentPassword } = req.body;
   const cleanEmail = normalizeEmail(newEmail);
@@ -350,6 +441,7 @@ exports.changeEmail = async (req, res, next) => {
 /**
  * PATCH /change-password — verifies old password, stores new PBKDF2 hash (no token rotate required).
  */
+// ======================== CHANGE PASSWORD ========================
 exports.changePassword = async (req, res, next) => {
   const { currentPassword, newPassword, confirmNewPassword } = req.body;
 
@@ -400,6 +492,7 @@ exports.changePassword = async (req, res, next) => {
 /**
  * PATCH /profile-picture — stores data:image/* base64 in DB (size-capped); returns new JWT.
  */
+// ======================== PROFILE PICTURE ========================
 exports.updateProfilePicture = async (req, res, next) => {
   const { imageData } = req.body;
   const cleanImageData = String(imageData || "").trim();
@@ -444,6 +537,7 @@ exports.updateProfilePicture = async (req, res, next) => {
 /**
  * PATCH /notification-settings — boolean flags persisted as 0/1 in users table.
  */
+// ======================== NOTIFICATION SETTINGS ========================
 exports.updateNotificationSettings = async (req, res, next) => {
   const { notifyNewPets, notifyApplicationUpdates } = req.body;
 
@@ -479,6 +573,7 @@ exports.updateNotificationSettings = async (req, res, next) => {
 /**
  * DELETE /account — irreversible row delete after password check + "DELETE" confirmation string.
  */
+// ======================== DELETE ACCOUNT ========================
 exports.deleteAccount = async (req, res, next) => {
   const { currentPassword, confirmationText } = req.body;
 

@@ -1,9 +1,12 @@
 /**
- * postController — community posts with join to users for author display name.
+ * =============================================================================
+ * FILE: server/controllers/postController.js
+ * ROLE: Legacy community posts API (/api/posts)
+ * =============================================================================
  */
 const { query, run } = require("../config/db");
 
-/** POST /posts — authenticated user creates thread row. */
+// ======================== CREATE POST ========================
 exports.createPost = async (req, res, next) => {
   const { title, description } = req.body;
 
@@ -34,7 +37,7 @@ exports.createPost = async (req, res, next) => {
   }
 };
 
-/** GET /posts — feed sorted newest first; joins users for username/phone. */
+// ======================== LIST POSTS ========================
 exports.getPosts = async (req, res, next) => {
   try {
     const posts = await query(`
@@ -49,7 +52,7 @@ exports.getPosts = async (req, res, next) => {
   }
 };
 
-/** DELETE /posts/:id — author or admin only (ownership check). */
+// ======================== DELETE POST ========================
 exports.deletePost = async (req, res, next) => {
   const postId = Number(req.params.id);
 

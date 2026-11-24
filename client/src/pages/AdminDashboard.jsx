@@ -1,53 +1,346 @@
 /**
- * Admin dashboard page — loads aggregate stats + user/post/comment tables.
- * Access enforced server-side by role middleware; UI handles 403 with message.
+ * =============================================================================
+ * FILE: client/src/pages/AdminDashboard.jsx
+ * ROLE: Admin panel — stats, users, bans/warns, reports, comments, applications
+ * =============================================================================
+ * Sections: LOAD | NAV | APPLICATIONS | COMMENTS | REPORTS | USERS | BAN/WARN
+ * =============================================================================
  */
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  AlertTriangle,
+  Ban,
+  Download,
+  Eye,
+  FileText,
+  Flag,
+  Heart,
+  LayoutDashboard,
+  MessageSquare,
+  MoreHorizontal,
+  PawPrint,
+  Plus,
+  Settings,
+  Trash2,
+  Users,
+} from "lucide-react";
 import Navbar from "../Components/layout/Navbar";
 import Footer from "../Components/layout/Footer";
 import {
+  deleteAdminApplication,
+  deleteAdminComment,
+  deleteAdminPet,
+  getAdminApplications,
   getAdminComments,
-  getAdminPosts,
+  getAdminReports,
   getAdminStats,
   getAdminUsers,
+  setAdminUserBanned,
+  updateAdminApplicationStatus,
+  updateAdminReportStatus,
+  warnAdminUser,
 } from "../services/adminService";
+import { getProfile } from "../services/authService";
 import styles from "../styles/adminDashboard.module.css";
 
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "animals", label: "Animals", icon: PawPrint },
+  { id: "applications", label: "Applications", icon: FileText },
+  { id: "comments", label: "Comments", icon: MessageSquare },
+  { id: "reports", label: "Reports", icon: Flag },
+  { id: "users", label: "Users", icon: Users },
+  { id: "settings", label: "Settings", icon: Settings },
+];
+
+const APP_STATUS_OPTIONS = [
+  { value: "pending", label: "Under Review" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const BAN_REASON_OPTIONS = [
+  "Spam / abuse",
+  "Inappropriate content",
+  "Harassment",
+  "Fake account",
+  "Scam / fraud",
+  "Terms of service violation",
+  "Other",
+];
+
+const WARNING_REASON_OPTIONS = [
+  "Spam / abuse",
+  "Inappropriate content",
+  "Harassment",
+  "Misleading information",
+  "Community guidelines",
+  "Other",
+];
+
+function formatAppStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (value === "pending") return "Under Review";
+  if (value === "approved") return "Approved";
+  if (value === "rejected") return "Rejected";
+  if (value === "cancelled") return "Cancelled";
+  return status || "Unknown";
+}
+
+function statusBadgeClass(status) {
+  const value = String(status || "").toLowerCase();
+  if (value === "approved" || value === "adopted" || value === "available") {
+    return styles.badgeGreen;
+  }
+  if (value === "rejected" || value === "cancelled") return styles.badgeRed;
+  if (value === "pending") return styles.badgeYellow;
+  return styles.badgeGray;
+}
+
+function formatDelta(value) {
+  const num = Number(value || 0);
+  if (num > 0) return `+${num} from last month`;
+  if (num < 0) return `${num} from last month`;
+  return "No change from last month";
+}
+
+function petThumb(pet) {
+  if (!pet) return "";
+  if (Array.isArray(pet.images) && pet.images[0]) return pet.images[0];
+  if (typeof pet.images === "string") {
+    try {
+      const parsed = JSON.parse(pet.images);
+      if (Array.isArray(parsed) && parsed[0]) return parsed[0];
+    } catch {
+      /* ignore */
+    }
+  }
+  return pet.image || pet.petImage || "";
+}
+
+function capitalizeFirst(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+}
+
+function displayName(user) {
+  const first = user?.firstName || user?.firstname || "";
+  const last = user?.lastName || user?.lastname || "";
+  const full = `${first} ${last}`.trim();
+  return full || user?.username || "Admin";
+}
+
+function ownerDisplayName(item) {
+  const first = item?.ownerFirstName || "";
+  const last = item?.ownerLastName || "";
+  const full = `${first} ${last}`.trim();
+  return full || item?.ownerUsername || item?.ownerEmail || "Unknown";
+}
+
+function DonutChart({ segments, total, centerLabel }) {
+  const size = 160;
+  const stroke = 22;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+
+  return (
+    <div className={styles.donutWrap}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#eee"
+          strokeWidth={stroke}
+        />
+        {segments.map((seg) => {
+          const value = Number(seg.value || 0);
+          const length = total > 0 ? (value / total) * circumference : 0;
+          const circle = (
+            <circle
+              key={seg.key}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={stroke}
+              strokeDasharray={`${length} ${circumference - length}`}
+              strokeDashoffset={-offset}
+              strokeLinecap="butt"
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          );
+          offset += length;
+          return circle;
+        })}
+        <text x="50%" y="46%" textAnchor="middle" className={styles.donutTotal}>
+          {total}
+        </text>
+        <text x="50%" y="58%" textAnchor="middle" className={styles.donutLabel}>
+          {centerLabel}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function LineChart({ points }) {
+  const width = 520;
+  const height = 200;
+  const padX = 28;
+  const padY = 24;
+  const values = points.map((p) => Number(p.count || 0));
+  const max = Math.max(1, ...values);
+  const stepX =
+    points.length > 1
+      ? (width - padX * 2) / (points.length - 1)
+      : width - padX * 2;
+
+  const coords = points.map((p, i) => {
+    const x = padX + i * stepX;
+    const y =
+      height - padY - (Number(p.count || 0) / max) * (height - padY * 2);
+    return { x, y, ...p };
+  });
+
+  const path = coords
+    .map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`)
+    .join(" ");
+
+  const labelIndexes = new Set(
+    [0, Math.floor(points.length / 2), points.length - 1].filter((i) => i >= 0),
+  );
+
+  return (
+    <svg
+      className={styles.lineChart}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+    >
+      {[0.25, 0.5, 0.75, 1].map((ratio) => {
+        const y = height - padY - ratio * (height - padY * 2);
+        return (
+          <line
+            key={ratio}
+            x1={padX}
+            y1={y}
+            x2={width - padX}
+            y2={y}
+            className={styles.gridLine}
+          />
+        );
+      })}
+      <path d={path} className={styles.linePath} fill="none" />
+      {coords.map((c) => (
+        <circle
+          key={c.date}
+          cx={c.x}
+          cy={c.y}
+          r="3.5"
+          className={styles.lineDot}
+        />
+      ))}
+      {coords.map((c, i) =>
+        labelIndexes.has(i) ? (
+          <text
+            key={`label-${c.date}`}
+            x={c.x}
+            y={height - 6}
+            textAnchor="middle"
+            className={styles.lineAxisLabel}
+          >
+            {c.label}
+          </text>
+        ) : null,
+      )}
+    </svg>
+  );
+}
+
 const AdminDashboard = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [section, setSection] = useState(() => {
+    const fromQuery = new URLSearchParams(window.location.search).get(
+      "section",
+    );
+    return fromQuery || "dashboard";
+  });
   const [stats, setStats] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
-  const [allPosts, setAllPosts] = useState([]);
   const [allComments, setAllComments] = useState([]);
-  const [activeList, setActiveList] = useState("users");
+  const [allApplications, setAllApplications] = useState([]);
+  const [allReports, setAllReports] = useState([]);
+  const [adminUser, setAdminUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [lastUpdated, setLastUpdated] = useState("");
-  const navigate = useNavigate();
+  const [actionMessage, setActionMessage] = useState("");
+  const [updatingId, setUpdatingId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const [messageModal, setMessageModal] = useState(null);
+  const [banModal, setBanModal] = useState(null);
+  const [banReason, setBanReason] = useState(BAN_REASON_OPTIONS[0]);
+  const [banDescription, setBanDescription] = useState("");
+  const [banError, setBanError] = useState("");
+  const [warnModal, setWarnModal] = useState(null);
+  const [warnReason, setWarnReason] = useState(WARNING_REASON_OPTIONS[0]);
+  const [warnMessage, setWarnMessage] = useState("");
+  const [warnError, setWarnError] = useState("");
 
-  /** Fetch all admin datasets in parallel and stamp last refresh time. */
-  const loadStats = async () => {
+  const closeMoreMenu = () => {
+    setOpenMenuId(null);
+  };
+
+  const closeBanModal = () => {
+    if (updatingId?.startsWith?.("user-")) return;
+    setBanModal(null);
+    setBanReason(BAN_REASON_OPTIONS[0]);
+    setBanDescription("");
+    setBanError("");
+  };
+
+  const closeWarnModal = () => {
+    if (updatingId?.startsWith?.("warn-")) return;
+    setWarnModal(null);
+    setWarnReason(WARNING_REASON_OPTIONS[0]);
+    setWarnMessage("");
+    setWarnError("");
+  };
+
+  // ======================== LOAD DASHBOARD DATA ========================
+  const loadDashboard = async () => {
     setLoading(true);
     setError("");
-
     try {
-      const [statsRes, usersRes, postsRes, commentsRes] = await Promise.all([
-        getAdminStats(),
-        getAdminUsers(),
-        getAdminPosts(),
-        getAdminComments(),
-      ]);
+      const [statsRes, usersRes, commentsRes, appsRes, reportsRes, profileRes] =
+        await Promise.all([
+          getAdminStats(),
+          getAdminUsers(),
+          getAdminComments(),
+          getAdminApplications(),
+          getAdminReports(),
+          getProfile(),
+        ]);
 
       setStats(statsRes.data);
       setAllUsers(usersRes.data || []);
-      setAllPosts(postsRes.data || []);
       setAllComments(commentsRes.data || []);
-      setLastUpdated(new Date().toLocaleString());
+      setAllApplications(appsRes.data || []);
+      setAllReports(reportsRes.data || []);
+      setAdminUser(profileRes.data?.user || null);
     } catch (err) {
       if (err.response?.status === 403) {
         setError("Access denied. Admins only.");
       } else {
-        setError(err.response?.data?.message || "Failed to load stats");
+        setError(err.response?.data?.message || "Failed to load dashboard");
       }
     } finally {
       setLoading(false);
@@ -55,39 +348,453 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    loadStats();
+    loadDashboard();
   }, []);
 
-  const statItems = stats
-    ? [
-        {
-          label: "Total Users",
-          value: stats.stats.totalUsers,
-          hint: "Registered accounts",
-        },
-        {
-          label: "Total Pets",
-          value: stats.stats.totalPets,
-          hint: "Pets listed in system",
-        },
-        {
-          label: "Available Pets",
-          value: stats.stats.availablePets,
-          hint: "Ready for adoption",
-          highlighted: true,
-        },
-        {
-          label: "Total Posts",
-          value: stats.stats.totalPosts,
-          hint: "Community discussions",
-        },
-        {
-          label: "Total Comments",
-          value: stats.stats.totalComments,
-          hint: "Engagement activity",
-        },
-      ]
-    : [];
+  useEffect(() => {
+    const fromQuery = new URLSearchParams(location.search).get("section");
+    if (fromQuery) setSection(fromQuery);
+  }, [location.search]);
+
+  useEffect(() => {
+    if (openMenuId == null) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeMoreMenu();
+    };
+    const onScroll = () => closeMoreMenu();
+    document.addEventListener("click", closeMoreMenu);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", closeMoreMenu);
+    return () => {
+      document.removeEventListener("click", closeMoreMenu);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", closeMoreMenu);
+    };
+  }, [openMenuId]);
+
+  useEffect(() => {
+    if (!messageModal) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeMessageModal();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [messageModal]);
+
+  useEffect(() => {
+    if (!banModal) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeBanModal();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [banModal, updatingId]);
+
+  useEffect(() => {
+    if (!warnModal) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeWarnModal();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [warnModal, updatingId]);
+
+  const pets = stats?.allPets || [];
+
+  const dateRangeLabel = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const fmt = (d) =>
+      d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    return `${fmt(start)} - ${fmt(end)}`;
+  }, []);
+
+  const animalSegments = useMemo(() => {
+    const data = stats?.animalsByStatus || {};
+    return [
+      {
+        key: "available",
+        label: "Available",
+        value: data.available || 0,
+        color: "#43a047",
+      },
+      {
+        key: "pending",
+        label: "Pending",
+        value: data.pending || 0,
+        color: "#ff9800",
+      },
+      {
+        key: "adopted",
+        label: "Adopted",
+        value: data.adopted || 0,
+        color: "#e53935",
+      },
+      {
+        key: "notAvailable",
+        label: "Not Available",
+        value: data.notAvailable || 0,
+        color: "#9e9e9e",
+      },
+    ];
+  }, [stats]);
+
+  const applicationSegments = useMemo(() => {
+    const data = stats?.applicationsByStatus || {};
+    return [
+      {
+        key: "pending",
+        label: "Under Review",
+        value: data.pending || 0,
+        color: "#ffb300",
+      },
+      {
+        key: "approved",
+        label: "Approved",
+        value: data.approved || 0,
+        color: "#43a047",
+      },
+      {
+        key: "rejected",
+        label: "Rejected",
+        value: data.rejected || 0,
+        color: "#e53935",
+      },
+      {
+        key: "cancelled",
+        label: "Cancelled",
+        value: data.cancelled || 0,
+        color: "#9e9e9e",
+      },
+    ];
+  }, [stats]);
+
+  const animalTotal = animalSegments.reduce((s, x) => s + x.value, 0);
+  const applicationTotal = applicationSegments.reduce((s, x) => s + x.value, 0);
+
+  const handleNav = (id) => {
+    if (id === "settings") {
+      navigate("/profile?tab=settings");
+      return;
+    }
+    setSection(id);
+    setActionMessage("");
+  };
+
+  const refreshAfterMutation = async (message) => {
+    const [statsRes, appsRes] = await Promise.all([
+      getAdminStats(),
+      getAdminApplications(),
+    ]);
+    setStats(statsRes.data);
+    setAllApplications(appsRes.data || []);
+    setActionMessage(message);
+  };
+
+  // ======================== APPLICATIONS ========================
+  const handleStatusChange = async (id, status) => {
+    setUpdatingId(id);
+    setActionMessage("");
+    closeMoreMenu();
+    try {
+      await updateAdminApplicationStatus(id, status);
+      await refreshAfterMutation("Application status updated.");
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not update application status.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRemoveApplication = async (app) => {
+    closeMoreMenu();
+    const ok = window.confirm(
+      `Remove the adoption request from ${app.fullName} for ${app.petName || "this pet"}?`,
+    );
+    if (!ok) return;
+    setUpdatingId(app.id);
+    try {
+      await deleteAdminApplication(app.id);
+      await refreshAfterMutation("Application removed.");
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not remove application.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRemovePetListing = async (app) => {
+    closeMoreMenu();
+    if (!app.petId) {
+      setActionMessage("This request has no linked pet listing.");
+      return;
+    }
+    const ok = window.confirm(
+      `Permanently remove the pet listing "${app.petName || "Pet"}" and all its applications?`,
+    );
+    if (!ok) return;
+    setUpdatingId(app.id);
+    try {
+      await deleteAdminPet(app.petId);
+      await refreshAfterMutation("Pet listing removed.");
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not remove pet listing.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // ======================== COMMENTS ========================
+  const handleRemoveComment = async (comment) => {
+    const author = displayName(comment);
+    const ok = window.confirm(
+      `Remove comment by ${author} on ${comment.petName || "this pet"}?`,
+    );
+    if (!ok) return;
+    setUpdatingId(`comment-${comment.id}`);
+    try {
+      await deleteAdminComment(comment.id);
+      setAllComments((prev) => prev.filter((item) => item.id !== comment.id));
+      setActionMessage("Comment removed.");
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not remove comment.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const openBanModal = (user) => {
+    setBanModal(user);
+    setBanReason(BAN_REASON_OPTIONS[0]);
+    setBanDescription("");
+    setBanError("");
+  };
+
+  const openWarnModal = (user) => {
+    setWarnModal(user);
+    setWarnReason(WARNING_REASON_OPTIONS[0]);
+    setWarnMessage("");
+    setWarnError("");
+  };
+
+  // ======================== WARN USER ========================
+  const handleConfirmWarnUser = async () => {
+    if (!warnModal) return;
+    const reason = String(warnReason || "").trim();
+    const message = String(warnMessage || "").trim();
+    if (!reason) {
+      setWarnError("Choose a warning reason.");
+      return;
+    }
+    if (!message) {
+      setWarnError("Add a short warning message.");
+      return;
+    }
+
+    setWarnError("");
+    setUpdatingId(`warn-${warnModal.id}`);
+    try {
+      const res = await warnAdminUser(warnModal.id, { reason, message });
+      setAllUsers((prev) =>
+        prev.map((item) =>
+          item.id === warnModal.id
+            ? {
+                ...item,
+                warningCount: Number(
+                  res.data?.warningCount ?? Number(item.warningCount || 0) + 1,
+                ),
+              }
+            : item,
+        ),
+      );
+      setActionMessage(res.data?.message || "Warning sent.");
+      setWarnModal(null);
+      setWarnReason(WARNING_REASON_OPTIONS[0]);
+      setWarnMessage("");
+    } catch (err) {
+      setWarnError(
+        err.response?.data?.message || "Could not send warning.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const openMoreMenuAt = (e, menuId) => {
+    e.stopPropagation();
+    if (openMenuId === menuId) {
+      closeMoreMenu();
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 200;
+    const gap = 6;
+    const left = Math.min(
+      Math.max(8, rect.right - menuWidth),
+      window.innerWidth - menuWidth - 8,
+    );
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < 280;
+    setMenuPos({
+      top: openUp ? undefined : rect.bottom + gap,
+      bottom: openUp ? window.innerHeight - rect.top + gap : undefined,
+      left,
+    });
+    setOpenMenuId(menuId);
+  };
+
+  // ======================== REPORTS ========================
+  const handleUpdateReportStatus = async (report, status) => {
+    closeMoreMenu();
+    setUpdatingId(`report-${report.id}`);
+    try {
+      await updateAdminReportStatus(report.id, status);
+      setAllReports((prev) =>
+        prev.map((item) =>
+          item.id === report.id ? { ...item, status } : item,
+        ),
+      );
+      setActionMessage(
+        status === "dismissed"
+          ? "Report dismissed."
+          : status === "pending"
+            ? "Report reopened."
+            : "Report marked reviewed.",
+      );
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not update report.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // ======================== BAN / UNBAN ========================
+  const handleUnbanUser = async (user) => {
+    const label = displayName(user);
+    const ok = window.confirm(`Unban @${user.username || label}?`);
+    if (!ok) return;
+    setUpdatingId(`user-${user.id}`);
+    try {
+      const res = await setAdminUserBanned(user.id, { banned: false });
+      setAllUsers((prev) =>
+        prev.map((item) =>
+          item.id === user.id
+            ? {
+                ...item,
+                isBanned: false,
+                banReason: null,
+                banDescription: null,
+                bannedAt: null,
+              }
+            : item,
+        ),
+      );
+      setActionMessage(res.data?.message || "User unbanned.");
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not unban this user.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleConfirmBanUser = async () => {
+    if (!banModal) return;
+    const reason = String(banReason || "").trim();
+    const description = String(banDescription || "").trim();
+    if (!reason) {
+      setBanError("Choose a ban reason.");
+      return;
+    }
+    if (!description) {
+      setBanError("Add a short description for this ban.");
+      return;
+    }
+
+    setBanError("");
+    setUpdatingId(`user-${banModal.id}`);
+    try {
+      const res = await setAdminUserBanned(banModal.id, {
+        banned: true,
+        reason,
+        description,
+      });
+      setAllUsers((prev) =>
+        prev.map((item) =>
+          item.id === banModal.id
+            ? {
+                ...item,
+                isBanned: true,
+                banReason: res.data?.banReason || reason,
+                banDescription: res.data?.banDescription || description,
+                bannedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+      setActionMessage(res.data?.message || "User banned.");
+      setBanModal(null);
+      setBanReason(BAN_REASON_OPTIONS[0]);
+      setBanDescription("");
+    } catch (err) {
+      setBanError(
+        err.response?.data?.message || "Could not ban this user.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleEmailApplicant = (app) => {
+    closeMoreMenu();
+    if (!app.email) {
+      setActionMessage("No email on this application.");
+      return;
+    }
+    const subject = encodeURIComponent(
+      `About your adoption request for ${app.petName || "a pet"}`,
+    );
+    window.location.href = `mailto:${app.email}?subject=${subject}`;
+  };
+
+  const handleCopyEmail = async (app) => {
+    closeMoreMenu();
+    if (!app.email) {
+      setActionMessage("No email on this application.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(app.email);
+      setActionMessage("Applicant email copied.");
+    } catch {
+      setActionMessage(app.email);
+    }
+  };
+
+  const handleViewMessage = (app) => {
+    closeMoreMenu();
+    setMessageModal(app);
+  };
+
+  const closeMessageModal = () => setMessageModal(null);
 
   const escapeHtml = (value) =>
     String(value ?? "")
@@ -97,530 +804,1446 @@ const AdminDashboard = () => {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
-  const formatDate = (dateValue) => {
-    if (!dateValue) return "-";
-    return new Date(dateValue).toLocaleString();
-  };
-
-  const buildTableHtml = (title, columns, rows) => {
-    const thead = columns
-      .map((column) => `<th>${escapeHtml(column.label)}</th>`)
-      .join("");
-    const tbody = rows.length
-      ? rows
-          .map((row) => {
-            const cells = columns
-              .map((column) => `<td>${escapeHtml(row[column.key])}</td>`)
-              .join("");
-            return `<tr>${cells}</tr>`;
-          })
-          .join("")
-      : `<tr><td colspan="${columns.length}">No data</td></tr>`;
-
-    return `
-      <section class="report-section">
-        <h2>${escapeHtml(title)}</h2>
-        <table>
-          <thead><tr>${thead}</tr></thead>
-          <tbody>${tbody}</tbody>
-        </table>
-      </section>
-    `;
-  };
-
-  const handleExportPdf = () => {
+  const handleExportReport = () => {
     if (!stats) return;
-
     const now = new Date().toLocaleString();
-    const usersRows = allUsers.map((user) => ({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      registered: formatDate(user.createdAt),
-    }));
-    const postsRows = allPosts.map((post) => ({
-      id: post.id,
-      title: post.title,
-      author: post.username,
-      created: formatDate(post.createdAt),
-    }));
-    const commentsRows = allComments.map((comment) => ({
-      id: comment.id,
-      postId: comment.postId,
-      user: comment.username,
-      comment: comment.text,
-      created: formatDate(comment.createdAt),
-    }));
+    const kpi = stats.stats || {};
+    const rows = (allApplications.length
+      ? allApplications
+      : stats.recentApplications || []
+    )
+      .map(
+        (app) => `
+        <tr>
+          <td>${escapeHtml(app.petName)}</td>
+          <td>${escapeHtml(app.fullName)}</td>
+          <td>${escapeHtml(app.email)}</td>
+          <td>${escapeHtml(formatAppStatus(app.status))}</td>
+          <td>${escapeHtml(app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "")}</td>
+        </tr>`,
+      )
+      .join("");
 
-    const reportHtml = `
+    const html = `
       <!doctype html>
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>Admin Report</title>
+          <title>H4P Admin Report</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #222; margin: 24px; }
-            h1 { margin: 0; font-size: 24px; }
-            .meta { margin: 8px 0 24px; color: #666; font-size: 13px; }
-            .stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
-            .stat { border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
-            .stat-label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
-            .stat-value { font-size: 18px; font-weight: 700; }
-            .report-section { margin-top: 24px; page-break-inside: avoid; }
-            h2 { margin: 0 0 8px; font-size: 16px; }
-            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; text-align: left; vertical-align: top; word-break: break-word; }
+            body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; color: #222; }
+            h1 { margin: 0 0 4px; }
+            .meta { color: #666; margin-bottom: 20px; }
+            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
+            .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; }
+            .label { font-size: 12px; color: #777; }
+            .value { font-size: 22px; font-weight: 700; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; text-align: left; }
             th { background: #f5f5f5; }
           </style>
         </head>
         <body>
-          <h1>House For Paws - Admin Report</h1>
-          <p class="meta">Generated: ${escapeHtml(now)}</p>
-          <div class="stats-grid">
-            ${statItems
-              .map(
-                (item) => `
-                  <div class="stat">
-                    <span class="stat-label">${escapeHtml(item.label)}</span>
-                    <span class="stat-value">${escapeHtml(item.value)}</span>
-                  </div>
-                `,
-              )
-              .join("")}
+          <h1>House For Paws — Admin Report</h1>
+          <p class="meta">Generated: ${escapeHtml(now)} · Range: ${escapeHtml(dateRangeLabel)}</p>
+          <div class="grid">
+            <div class="card"><div class="label">Animals</div><div class="value">${escapeHtml(kpi.totalPets)}</div></div>
+            <div class="card"><div class="label">Applications</div><div class="value">${escapeHtml(kpi.totalApplications)}</div></div>
+            <div class="card"><div class="label">Adoptions</div><div class="value">${escapeHtml(kpi.totalAdoptions)}</div></div>
+            <div class="card"><div class="label">Users</div><div class="value">${escapeHtml(kpi.totalUsers)}</div></div>
           </div>
-          ${buildTableHtml(
-            "Recent Users",
-            [
-              { key: "id", label: "ID" },
-              { key: "username", label: "Username" },
-              { key: "email", label: "Email" },
-              { key: "joined", label: "Joined" },
-            ],
-            (stats.recentUsers || []).map((u) => ({
-              id: u.id,
-              username: u.username,
-              email: u.email,
-              joined: formatDate(u.createdAt),
-            })),
-          )}
-          ${buildTableHtml(
-            "Recent Pets",
-            [
-              { key: "id", label: "ID" },
-              { key: "name", label: "Name" },
-              { key: "breed", label: "Breed" },
-              { key: "status", label: "Status" },
-            ],
-            (stats.recentPets || []).map((p) => ({
-              id: p.id,
-              name: p.name,
-              breed: p.breed,
-              status: p.status,
-            })),
-          )}
-          ${buildTableHtml(
-            "All Users",
-            [
-              { key: "id", label: "ID" },
-              { key: "username", label: "Username" },
-              { key: "email", label: "Email" },
-              { key: "role", label: "Role" },
-              { key: "registered", label: "Registered" },
-            ],
-            usersRows,
-          )}
-          ${buildTableHtml(
-            "All Posts",
-            [
-              { key: "id", label: "ID" },
-              { key: "title", label: "Title" },
-              { key: "author", label: "Author" },
-              { key: "created", label: "Created" },
-            ],
-            postsRows,
-          )}
-          ${buildTableHtml(
-            "All Comments",
-            [
-              { key: "id", label: "ID" },
-              { key: "postId", label: "Post ID" },
-              { key: "user", label: "User" },
-              { key: "comment", label: "Comment" },
-              { key: "created", label: "Created" },
-            ],
-            commentsRows,
-          )}
+          <h2>Applications</h2>
+          <table>
+            <thead>
+              <tr><th>Animal</th><th>Applicant</th><th>Email</th><th>Status</th><th>Date</th></tr>
+            </thead>
+            <tbody>${rows || "<tr><td colspan='5'>No applications</td></tr>"}</tbody>
+          </table>
         </body>
       </html>
     `;
 
     const printWindow = window.open("", "_blank", "width=1200,height=900");
     if (!printWindow) return;
-
     printWindow.document.open();
-    printWindow.document.write(reportHtml);
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
   };
 
-  const toCsvValue = (value) => {
-    const stringValue = String(value ?? "");
-    if (
-      stringValue.includes(",") ||
-      stringValue.includes('"') ||
-      stringValue.includes("\n")
-    ) {
-      return `"${stringValue.replace(/"/g, '""')}"`;
+  const renderApplicationsTable = (
+    rows,
+    { showActions = true, limit } = {},
+  ) => {
+    const list = typeof limit === "number" ? rows.slice(0, limit) : rows;
+    if (!list.length) {
+      return <p className={styles.empty}>No applications yet.</p>;
     }
-    return stringValue;
+
+    return (
+      <div className={styles.tableScroll}>
+        <table className={styles.dataTable}>
+          <thead>
+            <tr>
+              <th>Animal</th>
+              <th>Posted by</th>
+              <th>Applicant</th>
+              <th>Date</th>
+              <th>Status</th>
+              {showActions && <th>Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((app) => (
+              <tr key={app.id}>
+                <td>
+                  <div className={styles.personCell}>
+                    {petThumb(app) ? (
+                      <img
+                        src={petThumb(app)}
+                        alt=""
+                        className={styles.avatar}
+                      />
+                    ) : (
+                      <div className={styles.avatarFallback}>
+                        <PawPrint size={14} />
+                      </div>
+                    )}
+                    <div>
+                      <strong>{app.petName || "Pet"}</strong>
+                      <span>
+                        {capitalizeFirst(app.petType) ||
+                          app.petBreed ||
+                          "Animal"}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div className={styles.personCell}>
+                    {app.ownerAvatar ? (
+                      <img
+                        src={app.ownerAvatar}
+                        alt=""
+                        className={styles.avatar}
+                      />
+                    ) : (
+                      <div className={styles.avatarFallback}>
+                        {ownerDisplayName(app).charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <strong>{ownerDisplayName(app)}</strong>
+                      <span>{app.ownerEmail || app.ownerUsername || "—"}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div className={styles.personCell}>
+                    {app.applicantAvatar ? (
+                      <img
+                        src={app.applicantAvatar}
+                        alt=""
+                        className={styles.avatar}
+                      />
+                    ) : (
+                      <div className={styles.avatarFallback}>
+                        {(app.fullName || "?").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <strong>{app.fullName}</strong>
+                      <span>{app.email}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  {app.createdAt
+                    ? new Date(app.createdAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—"}
+                </td>
+                <td>
+                  {showActions ? (
+                    <select
+                      className={`${styles.statusSelect} ${statusBadgeClass(app.status)}`}
+                      value={String(app.status || "pending").toLowerCase()}
+                      disabled={updatingId === app.id}
+                      onChange={(e) =>
+                        handleStatusChange(app.id, e.target.value)
+                      }
+                    >
+                      {APP_STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span
+                      className={`${styles.badge} ${statusBadgeClass(app.status)}`}
+                    >
+                      {formatAppStatus(app.status)}
+                    </span>
+                  )}
+                </td>
+                {showActions && (
+                  <td>
+                    <div className={styles.rowActions}>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        onClick={() => navigate(`/adopt/${app.petId}`)}
+                        title="View pet"
+                      >
+                        <Eye size={16} />
+                        View
+                      </button>
+                      <div className={styles.moreWrap}>
+                        <button
+                          type="button"
+                          className={styles.moreBtn}
+                          title="More"
+                          aria-expanded={openMenuId === app.id}
+                          aria-haspopup="menu"
+                          disabled={updatingId === app.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (openMenuId === app.id) {
+                              closeMoreMenu();
+                              return;
+                            }
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const menuWidth = 200;
+                            const gap = 6;
+                            const left = Math.min(
+                              Math.max(8, rect.right - menuWidth),
+                              window.innerWidth - menuWidth - 8,
+                            );
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const openUp = spaceBelow < 280;
+                            setMenuPos({
+                              top: openUp
+                                ? undefined
+                                : rect.bottom + gap,
+                              bottom: openUp
+                                ? window.innerHeight - rect.top + gap
+                                : undefined,
+                              left,
+                            });
+                            setOpenMenuId(app.id);
+                          }}
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {openMenuId === app.id &&
+                          createPortal(
+                            <div
+                              className={styles.moreMenu}
+                              role="menu"
+                              style={{
+                                top: menuPos.top,
+                                bottom: menuPos.bottom,
+                                left: menuPos.left,
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => handleViewMessage(app)}
+                              >
+                                View message
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => handleEmailApplicant(app)}
+                              >
+                                Email applicant
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => handleCopyEmail(app)}
+                              >
+                                Copy email
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() =>
+                                  handleStatusChange(app.id, "approved")
+                                }
+                              >
+                                Approve request
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() =>
+                                  handleStatusChange(app.id, "rejected")
+                                }
+                              >
+                                Reject request
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={styles.moreMenuDanger}
+                                onClick={() => handleRemoveApplication(app)}
+                              >
+                                Remove request
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={styles.moreMenuDanger}
+                                onClick={() => handleRemovePetListing(app)}
+                              >
+                                Remove pet listing
+                              </button>
+                            </div>,
+                            document.body,
+                          )}
+                      </div>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
-  const downloadCsv = (filename, lines) => {
-    const blob = new Blob([lines.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportCsv = () => {
-    if (!stats) return;
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const csvLines = [];
-    const addSection = (title, headers, rows) => {
-      csvLines.push(toCsvValue(title));
-      csvLines.push(headers.map((header) => toCsvValue(header)).join(","));
-      if (rows.length) {
-        rows.forEach((row) =>
-          csvLines.push(row.map((cell) => toCsvValue(cell)).join(",")),
-        );
-      } else {
-        csvLines.push(toCsvValue("No data"));
-      }
-      csvLines.push("");
-    };
-
-    csvLines.push(toCsvValue("House For Paws - Admin Export"));
-    csvLines.push(`Generated At,${toCsvValue(new Date().toLocaleString())}`);
-    csvLines.push("");
-
-    addSection(
-      "Stats",
-      ["Metric", "Value"],
-      statItems.map((item) => [item.label, item.value]),
-    );
-
-    addSection(
-      "Users",
-      ["ID", "Username", "Email", "Role", "Registered"],
-      allUsers.map((user) => [
-        user.id,
-        user.username,
-        user.email,
-        user.role,
-        formatDate(user.createdAt),
-      ]),
-    );
-
-    addSection(
-      "Posts",
-      ["ID", "Title", "Author", "Created"],
-      allPosts.map((post) => [
-        post.id,
-        post.title,
-        post.username,
-        formatDate(post.createdAt),
-      ]),
-    );
-
-    addSection(
-      "Comments",
-      ["ID", "Post ID", "User", "Comment", "Created"],
-      allComments.map((comment) => [
-        comment.id,
-        comment.postId,
-        comment.username,
-        comment.text,
-        formatDate(comment.createdAt),
-      ]),
-    );
-
-    downloadCsv(`admin-full-export-${timestamp}.csv`, csvLines);
-  };
+  const kpi = stats?.stats;
 
   return (
     <>
       <Navbar />
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Admin Dashboard</h1>
-            <p className={styles.subtitle}>Site analytics and overview</p>
+      <div className={styles.shell}>
+        <aside className={styles.sidebar}>
+          <div className={styles.brand}>
+            <div>
+              <strong>Admin Panel</strong>
+              <span>{displayName(adminUser)}</span>
+            </div>
           </div>
-          <div className={styles.headerActions}>
-            <button className={styles.secondaryBtn} onClick={() => navigate("/profile")}>
-              Back to Profile
-            </button>
-            <button
-              className={styles.secondaryBtn}
-              onClick={handleExportPdf}
-              disabled={loading || !stats}
-            >
-              Export PDF
-            </button>
-            <button
-              className={styles.secondaryBtn}
-              onClick={handleExportCsv}
-              disabled={loading || !stats}
-            >
-              Export CSV
-            </button>
-            <button className={styles.primaryBtn} onClick={loadStats} disabled={loading}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-        </div>
-        {lastUpdated && !loading && !error && (
-          <p className={styles.lastUpdated}>Last updated: {lastUpdated}</p>
-        )}
 
+          <nav className={styles.sideNav}>
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = section === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`${styles.navBtn} ${active ? styles.navBtnActive : ""}`}
+                  onClick={() => handleNav(item.id)}
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <main className={styles.main}>
         {loading ? (
-          <div className={styles.loadingCard}>
-            <div className={styles.loader}></div>
-            <p>Loading admin insights...</p>
+          <div className={styles.stateCard}>
+            <div className={styles.loader} />
+            <p>Loading admin dashboard...</p>
           </div>
         ) : error ? (
-          <div className={styles.errorCard}>
-            <p>{error}</p>
-            <div className={styles.errorActions}>
-              <button className={styles.secondaryBtn} onClick={() => navigate("/profile")}>
+          <div className={styles.stateCard}>
+            <p className={styles.errorText}>{error}</p>
+            <div className={styles.stateActions}>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={() => navigate("/profile")}
+              >
                 Back to Profile
               </button>
-              <button className={styles.primaryBtn} onClick={loadStats}>
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={loadDashboard}
+              >
                 Try Again
               </button>
             </div>
           </div>
         ) : (
           <>
-            <div className={styles.statsGrid}>
-              {statItems.map((item) => (
-                <div
-                  key={item.label}
-                  className={`${styles.statCard} ${item.highlighted ? styles.statCardHighlight : ""}`}
+            <header className={styles.topBar}>
+              <h1>
+                {NAV_ITEMS.find((item) => item.id === section)?.label ||
+                  "Dashboard"}
+              </h1>
+              <div className={styles.topActions}>
+                <div className={styles.dateRange}>
+                  <span>{dateRangeLabel}</span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.primaryBtn}
+                  onClick={handleExportReport}
                 >
-                  <span className={styles.statLabel}>{item.label}</span>
-                  <span className={styles.statValue}>{item.value}</span>
-                  <span className={styles.statHint}>{item.hint}</span>
-                </div>
-              ))}
-            </div>
+                  <Download size={16} />
+                  Export Report
+                </button>
+              </div>
+            </header>
 
-            <div className={styles.tablesGrid}>
-              <div className={styles.tableCard}>
-                <h3 className={styles.tableTitle}>Recent Users</h3>
-                {stats.recentUsers.length ? (
-                  <div className={styles.tableWrapper}>
-                    <table className={styles.table}>
+            {actionMessage && <p className={styles.toast}>{actionMessage}</p>}
+
+            {section === "dashboard" && (
+              <>
+                <section className={styles.kpiGrid}>
+                  <article className={styles.kpiCard}>
+                    <div className={`${styles.kpiIcon} ${styles.kpiOrange}`}>
+                      <PawPrint size={18} />
+                    </div>
+                    <div>
+                      <span>Total Animals</span>
+                      <strong>{kpi?.totalPets ?? 0}</strong>
+                      <small>{formatDelta(kpi?.deltas?.animals)}</small>
+                    </div>
+                  </article>
+                  <article className={styles.kpiCard}>
+                    <div className={`${styles.kpiIcon} ${styles.kpiOrange}`}>
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <span>Applications</span>
+                      <strong>{kpi?.totalApplications ?? 0}</strong>
+                      <small>{formatDelta(kpi?.deltas?.applications)}</small>
+                    </div>
+                  </article>
+                  <article className={styles.kpiCard}>
+                    <div className={`${styles.kpiIcon} ${styles.kpiRed}`}>
+                      <Heart size={18} />
+                    </div>
+                    <div>
+                      <span>Adoptions</span>
+                      <strong>{kpi?.totalAdoptions ?? 0}</strong>
+                      <small>{formatDelta(kpi?.deltas?.adoptions)}</small>
+                    </div>
+                  </article>
+                  <article className={styles.kpiCard}>
+                    <div className={`${styles.kpiIcon} ${styles.kpiOrange}`}>
+                      <Users size={18} />
+                    </div>
+                    <div>
+                      <span>Users</span>
+                      <strong>{kpi?.totalUsers ?? 0}</strong>
+                      <small>{formatDelta(kpi?.deltas?.users)}</small>
+                    </div>
+                  </article>
+                </section>
+
+                <section className={styles.chartsRow}>
+                  <article className={styles.panel}>
+                    <h2>Adoptions Overview</h2>
+                    <LineChart points={stats?.adoptionsOverview || []} />
+                  </article>
+                  <article className={styles.panel}>
+                    <h2>Animals by Status</h2>
+                    <div className={styles.donutBlock}>
+                      <DonutChart
+                        segments={animalSegments}
+                        total={animalTotal}
+                        centerLabel="Total"
+                      />
+                      <ul className={styles.legend}>
+                        {animalSegments.map((seg) => (
+                          <li key={seg.key}>
+                            <span
+                              className={styles.swatch}
+                              style={{ background: seg.color }}
+                            />
+                            <span>{seg.label}</span>
+                            <strong>
+                              {seg.value}
+                              {animalTotal
+                                ? ` (${((seg.value / animalTotal) * 100).toFixed(1)}%)`
+                                : ""}
+                            </strong>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </article>
+                  <article className={styles.panel}>
+                    <h2>Applications by Status</h2>
+                    <div className={styles.donutBlock}>
+                      <DonutChart
+                        segments={applicationSegments}
+                        total={applicationTotal}
+                        centerLabel="Total"
+                      />
+                      <ul className={styles.legend}>
+                        {applicationSegments.map((seg) => (
+                          <li key={seg.key}>
+                            <span
+                              className={styles.swatch}
+                              style={{ background: seg.color }}
+                            />
+                            <span>{seg.label}</span>
+                            <strong>
+                              {seg.value}
+                              {applicationTotal
+                                ? ` (${((seg.value / applicationTotal) * 100).toFixed(1)}%)`
+                                : ""}
+                            </strong>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </article>
+                </section>
+
+                <section className={styles.bottomRow}>
+                  <article className={styles.panel}>
+                    <div className={styles.panelHeader}>
+                      <h2>Recent Applications</h2>
+                    </div>
+                    {renderApplicationsTable(stats?.recentApplications || [], {
+                      showActions: true,
+                      limit: 6,
+                    })}
+                    <button
+                      type="button"
+                      className={styles.viewAllBtn}
+                      onClick={() => setSection("applications")}
+                    >
+                      View All Applications
+                    </button>
+                  </article>
+
+                  <article className={styles.panel}>
+                    <h2>Quick Actions</h2>
+                    <div className={styles.quickActions}>
+                      <button
+                        type="button"
+                        className={`${styles.quickBtn} ${styles.quickBtnPrimary}`}
+                        onClick={() => navigate("/create-post")}
+                      >
+                        <Plus size={16} />
+                        Add New Animal
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.quickBtn}
+                        onClick={() => setSection("users")}
+                      >
+                        <Users size={16} />
+                        View All Users
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.quickBtn}
+                        onClick={() => setSection("animals")}
+                      >
+                        <PawPrint size={16} />
+                        View All Animals
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.quickBtn}
+                        onClick={() => setSection("applications")}
+                      >
+                        <FileText size={16} />
+                        View All Applications
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.quickBtn}
+                        onClick={() => setSection("comments")}
+                      >
+                        <MessageSquare size={16} />
+                        View All Comments
+                      </button>
+                    </div>
+                  </article>
+                </section>
+              </>
+            )}
+
+            {section === "animals" && (
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <h2>All Animals ({pets.length})</h2>
+                  <button
+                    type="button"
+                    className={styles.primaryBtn}
+                    onClick={() => navigate("/create-post")}
+                  >
+                    <Plus size={16} />
+                    Add New Animal
+                  </button>
+                </div>
+                {!pets.length ? (
+                  <p className={styles.empty}>No animals listed yet.</p>
+                ) : (
+                  <div className={styles.cardsGrid}>
+                    {pets.map((pet) => (
+                      <button
+                        key={pet.id}
+                        type="button"
+                        className={styles.entityCard}
+                        onClick={() => navigate(`/adopt/${pet.id}`)}
+                      >
+                        {petThumb(pet) ? (
+                          <img src={petThumb(pet)} alt={pet.name} />
+                        ) : (
+                          <div className={styles.entityPlaceholder}>
+                            <PawPrint size={28} />
+                          </div>
+                        )}
+                        <div>
+                          <strong>{pet.name}</strong>
+                          <span>
+                            {pet.breed} · {capitalizeFirst(pet.type)}
+                          </span>
+                          <span>Posted by {ownerDisplayName(pet)}</span>
+                          <em
+                            className={`${styles.badge} ${statusBadgeClass(pet.status)}`}
+                          >
+                            {pet.status}
+                          </em>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {section === "applications" && (
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <h2>Applications ({allApplications.length})</h2>
+                </div>
+                {renderApplicationsTable(allApplications, {
+                  showActions: true,
+                })}
+              </section>
+            )}
+
+            {section === "comments" && (
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <h2>Comments ({allComments.length})</h2>
+                </div>
+                {!allComments.length ? (
+                  <p className={styles.empty}>No comments on listings yet.</p>
+                ) : (
+                  <div className={styles.tableScroll}>
+                    <table className={styles.dataTable}>
                       <thead>
                         <tr>
-                          <th>ID</th>
-                          <th>Username</th>
-                          <th>Email</th>
-                          <th>Joined</th>
+                          <th>Listing</th>
+                          <th>Author</th>
+                          <th>Comment</th>
+                          <th>Date</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {stats.recentUsers.map((u) => (
-                          <tr key={u.id}>
-                            <td>{u.id}</td>
-                            <td>{u.username}</td>
-                            <td>{u.email}</td>
-                            <td>{new Date(u.createdAt).toLocaleDateString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className={styles.empty}>No users yet.</p>
-                )}
-              </div>
-
-              <div className={styles.tableCard}>
-                <h3 className={styles.tableTitle}>Recent Pets</h3>
-                {stats.recentPets.length ? (
-                  <div className={styles.tableWrapper}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Name</th>
-                          <th>Breed</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stats.recentPets.map((p) => (
-                          <tr key={p.id}>
-                            <td>{p.id}</td>
-                            <td>{p.name}</td>
-                            <td>{p.breed}</td>
-                            <td>
-                              <span className={styles.statusBadge}>{p.status}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className={styles.empty}>No pets yet.</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.tableCard}>
-              <div className={styles.listHeader}>
-                <h3 className={styles.tableTitle}>Management Lists</h3>
-                <div className={styles.listTabs}>
-                  <button
-                    className={`${styles.listTabBtn} ${activeList === "users" ? styles.listTabBtnActive : ""}`}
-                    onClick={() => setActiveList("users")}
-                  >
-                    Users ({allUsers.length})
-                  </button>
-                  <button
-                    className={`${styles.listTabBtn} ${activeList === "posts" ? styles.listTabBtnActive : ""}`}
-                    onClick={() => setActiveList("posts")}
-                  >
-                    Posts ({allPosts.length})
-                  </button>
-                  <button
-                    className={`${styles.listTabBtn} ${activeList === "comments" ? styles.listTabBtnActive : ""}`}
-                    onClick={() => setActiveList("comments")}
-                  >
-                    Comments ({allComments.length})
-                  </button>
-                </div>
-              </div>
-
-              {activeList === "users" && (
-                <>
-                  {allUsers.length ? (
-                    <div className={styles.tableWrapper}>
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Registered</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allUsers.map((user) => (
-                            <tr key={user.id}>
-                              <td>{user.id}</td>
-                              <td>{user.username}</td>
-                              <td>{user.email}</td>
-                              <td>{user.role}</td>
-                              <td>
-                                {new Date(user.createdAt).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className={styles.empty}>No registered users found.</p>
-                  )}
-                </>
-              )}
-
-              {activeList === "posts" && (
-                <>
-                  {allPosts.length ? (
-                    <div className={styles.tableWrapper}>
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Title</th>
-                            <th>Author</th>
-                            <th>Created</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allPosts.map((post) => (
-                            <tr key={post.id}>
-                              <td>{post.id}</td>
-                              <td>{post.title}</td>
-                              <td>{post.username}</td>
-                              <td>
-                                {new Date(post.createdAt).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className={styles.empty}>No posts found.</p>
-                  )}
-                </>
-              )}
-
-              {activeList === "comments" && (
-                <>
-                  {allComments.length ? (
-                    <div className={styles.tableWrapper}>
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Post ID</th>
-                            <th>User</th>
-                            <th>Comment</th>
-                            <th>Created</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allComments.map((comment) => (
+                        {allComments.map((comment) => {
+                          const thumb = petThumb({
+                            image: comment.petImage,
+                            images: comment.petImages,
+                          });
+                          const author = displayName(comment);
+                          const busy = updatingId === `comment-${comment.id}`;
+                          return (
                             <tr key={comment.id}>
-                              <td>{comment.id}</td>
-                              <td>{comment.postId}</td>
-                              <td>{comment.username}</td>
-                              <td>{comment.text}</td>
                               <td>
-                                {new Date(comment.createdAt).toLocaleDateString()}
+                                <button
+                                  type="button"
+                                  className={styles.personCellBtn}
+                                  onClick={() =>
+                                    comment.petId
+                                      ? navigate(`/adopt/${comment.petId}`)
+                                      : null
+                                  }
+                                  disabled={!comment.petId}
+                                >
+                                  {thumb ? (
+                                    <img
+                                      src={thumb}
+                                      alt=""
+                                      className={styles.avatar}
+                                    />
+                                  ) : (
+                                    <div className={styles.avatarFallback}>
+                                      <PawPrint size={14} />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <strong>
+                                      {comment.petName || "Deleted listing"}
+                                    </strong>
+                                    <span>
+                                      {capitalizeFirst(comment.petType) ||
+                                        comment.petBreed ||
+                                        "Pet"}
+                                    </span>
+                                  </div>
+                                </button>
+                              </td>
+                              <td>
+                                <div className={styles.personCell}>
+                                  {comment.avatar ? (
+                                    <img
+                                      src={comment.avatar}
+                                      alt=""
+                                      className={styles.avatar}
+                                    />
+                                  ) : (
+                                    <div className={styles.avatarFallback}>
+                                      {author.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <strong>{author}</strong>
+                                    <span>
+                                      {comment.email ||
+                                        `@${comment.username || "user"}`}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className={styles.commentCell}>
+                                {comment.text}
+                              </td>
+                              <td>
+                                {comment.createdAt
+                                  ? new Date(
+                                      comment.createdAt,
+                                    ).toLocaleString()
+                                  : "—"}
+                              </td>
+                              <td>
+                                <div className={styles.rowActions}>
+                                  {comment.petId ? (
+                                    <button
+                                      type="button"
+                                      className={styles.iconBtn}
+                                      title="View listing"
+                                      onClick={() =>
+                                        navigate(`/adopt/${comment.petId}`)
+                                      }
+                                    >
+                                      <Eye size={16} />
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className={styles.dangerIconBtn}
+                                    title="Remove comment"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      handleRemoveComment(comment)
+                                    }
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className={styles.empty}>No comments found.</p>
-                  )}
-                </>
-              )}
-            </div>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {section === "reports" && (
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <h2>Reports ({allReports.length})</h2>
+                </div>
+                {!allReports.length ? (
+                  <p className={styles.empty}>No reports yet.</p>
+                ) : (
+                  <div className={styles.tableScroll}>
+                    <table className={styles.dataTable}>
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Content</th>
+                          <th>Reporter</th>
+                          <th>Reason</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allReports.map((report) => {
+                          const busy = updatingId === `report-${report.id}`;
+                          const menuId = `report-${report.id}`;
+                          const status = String(
+                            report.status || "pending",
+                          ).toLowerCase();
+                          const isComment =
+                            String(report.targetType || "").toLowerCase() ===
+                            "comment";
+                          const preview =
+                            report.targetPreview || `#${report.targetId}`;
+                          const subtitle = report.description
+                            ? report.description
+                            : isComment
+                              ? "Reported comment"
+                              : "Reported listing";
+                          const reportedUser = allUsers.find(
+                            (u) =>
+                              Number(u.id) === Number(report.targetOwnerId),
+                          );
+                          return (
+                            <tr key={report.id}>
+                              <td>
+                                <span
+                                  className={`${styles.badge} ${styles.badgeGray}`}
+                                >
+                                  {isComment ? "Comment" : "Listing"}
+                                </span>
+                              </td>
+                              <td>
+                                <div
+                                  className={styles.reportContent}
+                                  title={
+                                    report.description
+                                      ? `${preview}\n${report.description}`
+                                      : preview
+                                  }
+                                >
+                                  <strong>{preview}</strong>
+                                  <span>{subtitle}</span>
+                                </div>
+                              </td>
+                              <td>
+                                <div className={styles.personCell}>
+                                  <div>
+                                    <strong>
+                                      {displayName({
+                                        firstName: report.reporterFirstName,
+                                        lastName: report.reporterLastName,
+                                        username: report.reporterUsername,
+                                      })}
+                                    </strong>
+                                    <span>
+                                      @
+                                      {report.reporterUsername ||
+                                        report.reporterEmail ||
+                                        "user"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>{report.reason}</td>
+                              <td>
+                                <span
+                                  className={`${styles.badge} ${
+                                    status === "pending"
+                                      ? styles.badgeYellow
+                                      : status === "dismissed"
+                                        ? styles.badgeGray
+                                        : styles.badgeGreen
+                                  }`}
+                                >
+                                  {status}
+                                </span>
+                              </td>
+                              <td>
+                                <div className={styles.rowActions}>
+                                  {report.relatedPetId ? (
+                                    <button
+                                      type="button"
+                                      className={styles.iconBtn}
+                                      title="View related listing"
+                                      onClick={() =>
+                                        navigate(
+                                          `/adopt/${report.relatedPetId}`,
+                                        )
+                                      }
+                                    >
+                                      <Eye size={16} />
+                                    </button>
+                                  ) : null}
+                                  <div className={styles.moreWrap}>
+                                    <button
+                                      type="button"
+                                      className={styles.moreBtn}
+                                      title="More"
+                                      aria-expanded={openMenuId === menuId}
+                                      aria-haspopup="menu"
+                                      disabled={busy}
+                                      onClick={(e) =>
+                                        openMoreMenuAt(e, menuId)
+                                      }
+                                    >
+                                      <MoreHorizontal size={16} />
+                                    </button>
+                                    {openMenuId === menuId &&
+                                      createPortal(
+                                        <div
+                                          className={styles.moreMenu}
+                                          role="menu"
+                                          style={{
+                                            top: menuPos.top,
+                                            bottom: menuPos.bottom,
+                                            left: menuPos.left,
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {report.relatedPetId ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              onClick={() => {
+                                                closeMoreMenu();
+                                                navigate(
+                                                  `/adopt/${report.relatedPetId}`,
+                                                );
+                                              }}
+                                            >
+                                              View listing
+                                            </button>
+                                          ) : null}
+                                          {status !== "reviewed" ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              onClick={() =>
+                                                handleUpdateReportStatus(
+                                                  report,
+                                                  "reviewed",
+                                                )
+                                              }
+                                            >
+                                              Mark reviewed
+                                            </button>
+                                          ) : null}
+                                          {status !== "dismissed" ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              className={styles.moreMenuDanger}
+                                              onClick={() =>
+                                                handleUpdateReportStatus(
+                                                  report,
+                                                  "dismissed",
+                                                )
+                                              }
+                                            >
+                                              Dismiss report
+                                            </button>
+                                          ) : null}
+                                          {status !== "pending" ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              onClick={() =>
+                                                handleUpdateReportStatus(
+                                                  report,
+                                                  "pending",
+                                                )
+                                              }
+                                            >
+                                              Reopen as pending
+                                            </button>
+                                          ) : null}
+                                          {reportedUser &&
+                                          !reportedUser.isBanned ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              onClick={() => {
+                                                closeMoreMenu();
+                                                openWarnModal(reportedUser);
+                                              }}
+                                            >
+                                              Warn reported user
+                                            </button>
+                                          ) : null}
+                                          {reportedUser ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              className={styles.moreMenuDanger}
+                                              onClick={() => {
+                                                closeMoreMenu();
+                                                if (reportedUser.isBanned) {
+                                                  handleUnbanUser(reportedUser);
+                                                } else {
+                                                  openBanModal(reportedUser);
+                                                }
+                                              }}
+                                            >
+                                              {reportedUser.isBanned
+                                                ? "Unban reported user"
+                                                : "Ban reported user"}
+                                            </button>
+                                          ) : null}
+                                        </div>,
+                                        document.body,
+                                      )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {section === "users" && (
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <h2>Users ({allUsers.length})</h2>
+                </div>
+                {!allUsers.length ? (
+                  <p className={styles.empty}>No users found.</p>
+                ) : (
+                  <div className={styles.tableScroll}>
+                    <table className={styles.dataTable}>
+                      <thead>
+                        <tr>
+                          <th>User</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Status</th>
+                          <th>Joined</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allUsers.map((user) => {
+                          const isAdminUser =
+                            String(user.role || "").toLowerCase() === "admin";
+                          const isSelf =
+                            adminUser?.id != null &&
+                            Number(adminUser.id) === Number(user.id);
+                          const busy = updatingId === `user-${user.id}`;
+                          return (
+                            <tr key={user.id}>
+                              <td>
+                                <div className={styles.personCell}>
+                                  {user.profile_picture ? (
+                                    <img
+                                      src={user.profile_picture}
+                                      alt=""
+                                      className={styles.avatar}
+                                    />
+                                  ) : (
+                                    <div className={styles.avatarFallback}>
+                                      {displayName(user)
+                                        .charAt(0)
+                                        .toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <strong>{displayName(user)}</strong>
+                                    <span>@{user.username}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>{user.email}</td>
+                              <td>
+                                <span
+                                  className={`${styles.badge} ${styles.badgeGray}`}
+                                >
+                                  {user.role}
+                                </span>
+                              </td>
+                              <td>
+                                <div className={styles.statusStack}>
+                                  <span
+                                    className={`${styles.badge} ${
+                                      user.isBanned
+                                        ? styles.badgeRed
+                                        : styles.badgeGreen
+                                    }`}
+                                  >
+                                    {user.isBanned ? "Banned" : "Active"}
+                                  </span>
+                                  {user.isBanned && user.banReason ? (
+                                    <span
+                                      className={styles.banReasonHint}
+                                      title={user.banDescription || ""}
+                                    >
+                                      {user.banReason}
+                                    </span>
+                                  ) : null}
+                                  {!user.isBanned &&
+                                  Number(user.warningCount || 0) > 0 ? (
+                                    <span className={styles.banReasonHint}>
+                                      {user.warningCount} warning
+                                      {Number(user.warningCount) === 1
+                                        ? ""
+                                        : "s"}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td>
+                                {user.createdAt
+                                  ? new Date(
+                                      user.createdAt,
+                                    ).toLocaleDateString()
+                                  : "—"}
+                              </td>
+                              <td>
+                                {isAdminUser || isSelf ? (
+                                  <span className={styles.mutedAction}>—</span>
+                                ) : (
+                                  <div className={styles.rowActions}>
+                                    {!user.isBanned ? (
+                                      <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        title="Send warning before ban"
+                                        disabled={busy}
+                                        onClick={() => openWarnModal(user)}
+                                      >
+                                        <AlertTriangle size={16} />
+                                        <span>Warn</span>
+                                      </button>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className={
+                                        user.isBanned
+                                          ? styles.iconBtn
+                                          : styles.dangerIconBtn
+                                      }
+                                      title={
+                                        user.isBanned
+                                          ? "Unban account"
+                                          : "Ban account"
+                                      }
+                                      disabled={busy}
+                                      onClick={() =>
+                                        user.isBanned
+                                          ? handleUnbanUser(user)
+                                          : openBanModal(user)
+                                      }
+                                    >
+                                      <Ban size={16} />
+                                      <span>
+                                        {busy
+                                          ? "Saving..."
+                                          : user.isBanned
+                                            ? "Unban"
+                                            : "Ban"}
+                                      </span>
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
+
           </>
         )}
+        </main>
       </div>
       <Footer />
+
+      {messageModal &&
+        createPortal(
+          <div
+            className={styles.messageOverlay}
+            onClick={closeMessageModal}
+            role="presentation"
+          >
+            <div
+              className={styles.messageModal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-message-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className={styles.messageClose}
+                onClick={closeMessageModal}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <p className={styles.messageEyebrow}>Adoption request</p>
+              <h2 id="admin-message-title" className={styles.messageTitle}>
+                {messageModal.fullName || "Applicant"}
+              </h2>
+              <p className={styles.messageSubtitle}>
+                wants to adopt{" "}
+                <strong>{messageModal.petName || "this pet"}</strong>
+              </p>
+
+              <div className={styles.messageMetaGrid}>
+                <div>
+                  <span>Email</span>
+                  <strong>{messageModal.email || "—"}</strong>
+                </div>
+                <div>
+                  <span>Phone</span>
+                  <strong>{messageModal.phone || "—"}</strong>
+                </div>
+                <div>
+                  <span>Posted by</span>
+                  <strong>{ownerDisplayName(messageModal)}</strong>
+                </div>
+                <div>
+                  <span>Date</span>
+                  <strong>
+                    {messageModal.createdAt
+                      ? new Date(messageModal.createdAt).toLocaleString()
+                      : "—"}
+                  </strong>
+                </div>
+              </div>
+
+              <div className={styles.messageBodyBox}>
+                <span>Message</span>
+                <p>{messageModal.message || "No message provided."}</p>
+              </div>
+
+              <div className={styles.messageFooter}>
+                {messageModal.petId ? (
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={() => {
+                      closeMessageModal();
+                      navigate(`/adopt/${messageModal.petId}`);
+                    }}
+                  >
+                    View pet
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={styles.primaryBtn}
+                  onClick={closeMessageModal}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {banModal &&
+        createPortal(
+          <div
+            className={styles.messageOverlay}
+            onClick={closeBanModal}
+            role="presentation"
+          >
+            <div
+              className={styles.messageModal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-ban-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className={styles.messageClose}
+                onClick={closeBanModal}
+                aria-label="Close"
+                disabled={updatingId === `user-${banModal.id}`}
+              >
+                ×
+              </button>
+              <p className={styles.messageEyebrow}>Ban account</p>
+              <h2 id="admin-ban-title" className={styles.messageTitle}>
+                @{banModal.username || displayName(banModal)}
+              </h2>
+              <p className={styles.messageSubtitle}>
+                Choose a reason and add details. They will not be able to sign
+                in.
+              </p>
+
+              <label className={styles.banField}>
+                <span>Reason</span>
+                <select
+                  value={banReason}
+                  onChange={(e) => {
+                    setBanReason(e.target.value);
+                    setBanError("");
+                  }}
+                  disabled={updatingId === `user-${banModal.id}`}
+                >
+                  {BAN_REASON_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className={styles.banField}>
+                <span>Description</span>
+                <textarea
+                  rows={4}
+                  placeholder="Describe why this account is being banned..."
+                  value={banDescription}
+                  onChange={(e) => {
+                    setBanDescription(e.target.value);
+                    setBanError("");
+                  }}
+                  disabled={updatingId === `user-${banModal.id}`}
+                />
+              </label>
+
+              {banError ? (
+                <p className={styles.banError}>{banError}</p>
+              ) : null}
+
+              <div className={styles.messageFooter}>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={closeBanModal}
+                  disabled={updatingId === `user-${banModal.id}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={styles.dangerBtn}
+                  onClick={handleConfirmBanUser}
+                  disabled={updatingId === `user-${banModal.id}`}
+                >
+                  {updatingId === `user-${banModal.id}`
+                    ? "Banning..."
+                    : "Ban account"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {warnModal &&
+        createPortal(
+          <div
+            className={styles.messageOverlay}
+            onClick={closeWarnModal}
+            role="presentation"
+          >
+            <div
+              className={styles.messageModal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-warn-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className={styles.messageClose}
+                onClick={closeWarnModal}
+                aria-label="Close"
+                disabled={updatingId === `warn-${warnModal.id}`}
+              >
+                ×
+              </button>
+              <p className={styles.messageEyebrow}>Warning before ban</p>
+              <h2 id="admin-warn-title" className={styles.messageTitle}>
+                @{warnModal.username || displayName(warnModal)}
+              </h2>
+              <p className={styles.messageSubtitle}>
+                Send a critical warning before a ban. They&apos;ll see it in
+                Notifications.
+              </p>
+
+              <label className={styles.banField}>
+                <span>Reason</span>
+                <select
+                  value={warnReason}
+                  onChange={(e) => {
+                    setWarnReason(e.target.value);
+                    setWarnError("");
+                  }}
+                  disabled={updatingId === `warn-${warnModal.id}`}
+                >
+                  {WARNING_REASON_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className={styles.banField}>
+                <span>Message</span>
+                <textarea
+                  rows={4}
+                  placeholder="Explain what needs to change..."
+                  value={warnMessage}
+                  onChange={(e) => {
+                    setWarnMessage(e.target.value);
+                    setWarnError("");
+                  }}
+                  disabled={updatingId === `warn-${warnModal.id}`}
+                />
+              </label>
+
+              {warnError ? (
+                <p className={styles.banError}>{warnError}</p>
+              ) : null}
+
+              <div className={styles.messageFooter}>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={closeWarnModal}
+                  disabled={updatingId === `warn-${warnModal.id}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryBtn}
+                  onClick={handleConfirmWarnUser}
+                  disabled={updatingId === `warn-${warnModal.id}`}
+                >
+                  {updatingId === `warn-${warnModal.id}`
+                    ? "Sending..."
+                    : "Send warning"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 };

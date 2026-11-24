@@ -1,4 +1,9 @@
-/** /api/users — current user shortcut + admin-only directory listing. */
+/**
+ * =============================================================================
+ * FILE: server/routes/userRoutes.js
+ * ROLE: Mount /api/users → userController
+ * =============================================================================
+ */
 const express = require("express");
 const router = express.Router();
 
@@ -6,7 +11,7 @@ const { getMe, getUsers } = require("../controllers/userController");
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
-router.get("/me", authMiddleware, getMe); // Mirror of profile-style payload
-router.get("/", authMiddleware, roleMiddleware("admin"), getUsers); // Admin dashboard user table
+router.get("/me", authMiddleware, getMe);
+router.get("/", authMiddleware, roleMiddleware("admin"), getUsers);
 
 module.exports = router;

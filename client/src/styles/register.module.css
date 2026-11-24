@@ -478,12 +478,24 @@
   box-shadow: 0 0 0 4px rgba(255, 159, 26, 0.18);
 }
 
-.input:required:invalid:not(:placeholder-shown) {
-  border-color: #e9b9a8;
+.inputInvalid {
+  border-color: #e07070 !important;
+  background: #fff7f7;
 }
 
-.input:required:valid {
-  border-color: #cfe5cc;
+.fieldError {
+  margin: 6px 0 0;
+  color: #c62828;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.formError {
+  margin: 0 0 12px;
+  color: #c62828;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 /* Select Styling */
@@ -664,7 +676,8 @@ button.termsLink:hover {
 
 .passwordChecks {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px 14px;
 }
 
 .passwordCheck {

@@ -1,8 +1,14 @@
 /**
- * Profile/settings hub — account data, security actions, preferences, and user pets.
- * Most actions call /api/auth/* endpoints and optionally rotate JWT on success.
+ * =============================================================================
+ * FILE: client/src/pages/Profile.jsx
+ * ROLE: User hub — profile, listings, favorites, requests, notifications, settings
+ * =============================================================================
+ * Sections: LOAD DATA | NOTIFICATIONS | REQUESTS | LISTINGS
+ *           PROFILE EDIT | EMAIL / PASSWORD | AVATAR | RENDER TABS
+ * =============================================================================
  */
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import styles from "../styles/profile.module.css";
 import Navbar from "../Components/layout/Navbar";
@@ -16,8 +22,20 @@ import {
   updateProfile,
   updateProfilePicture,
 } from "../services/authService";
-import { getPets } from "../services/userService";
+import { deletePet, getPets } from "../services/userService";
+import {
+  getIncomingApplications,
+  getMyApplications,
+  updateIncomingApplicationStatus,
+} from "../services/applicationService";
+import {
+  getNotifications,
+  getUnreadNotificationCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../services/notificationService";
 import FavoritedPets from "../Components/profile/FavoritedPets";
+import NotificationTypeIcon from "../Components/features/NotificationTypeIcon";
 import { notifyAuthTokenChanged } from "../utils/authEvents";
 
 const getFriendlyRole = (role) => {
@@ -38,6 +56,18 @@ const getFriendlyRole = (role) => {
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [myPets, setMyPets] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [myRequests, setMyRequests] = useState([]);
+  const [myRequestsLoading, setMyRequestsLoading] = useState(false);
+  const [myRequestsError, setMyRequestsError] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxError, setInboxError] = useState("");
+  const [updatingRequestId, setUpdatingRequestId] = useState(null);
+  const [requestActionMessage, setRequestActionMessage] = useState("");
+  const [removeListingPrompt, setRemoveListingPrompt] = useState(null);
+  const [isRemovingListing, setIsRemovingListing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
@@ -81,6 +111,7 @@ const Profile = () => {
   const location = useLocation();
 
   /** Load user profile + owned pets in parallel for initial render. */
+  // ======================== LOAD DATA ========================
   const loadProfile = async () => {
     setIsLoading(true);
     setError("");
@@ -115,8 +146,66 @@ const Profile = () => {
     }
   };
 
+  const loadInbox = async () => {
+    setInboxLoading(true);
+    setInboxError("");
+    try {
+      const [notifRes, requestsRes, unreadRes] = await Promise.all([
+        getNotifications(),
+        getIncomingApplications(),
+        getUnreadNotificationCount(),
+      ]);
+      setNotifications(notifRes.data || []);
+      setIncomingRequests(requestsRes.data || []);
+      setUnreadCount(Number(unreadRes.data?.count || 0));
+    } catch (err) {
+      setInboxError(
+        err.response?.data?.message || "Could not load notifications.",
+      );
+    } finally {
+      setInboxLoading(false);
+    }
+  };
+
+  const loadMyRequests = async () => {
+    setMyRequestsLoading(true);
+    setMyRequestsError("");
+    try {
+      const res = await getMyApplications();
+      setMyRequests(res.data || []);
+    } catch (err) {
+      setMyRequestsError(
+        err.response?.data?.message || "Could not load your adoption requests.",
+      );
+    } finally {
+      setMyRequestsLoading(false);
+    }
+  };
+
+  const formatRequestStatus = (status) => {
+    const value = String(status || "").toLowerCase();
+    if (value === "pending") return "Under Review";
+    if (value === "approved") return "Approved";
+    if (value === "rejected") return "Rejected";
+    if (value === "cancelled") return "Cancelled";
+    return status || "Unknown";
+  };
+
+  const ownerLabel = (req) => {
+    const first = req?.ownerFirstName || "";
+    const last = req?.ownerLastName || "";
+    const full = `${first} ${last}`.trim();
+    return full || req?.ownerUsername || req?.ownerEmail || "";
+  };
+
   useEffect(() => {
     loadProfile();
+    getUnreadNotificationCount()
+      .then((res) => setUnreadCount(Number(res.data?.count || 0)))
+      .catch(() => {});
+    getMyApplications()
+      .then((res) => setMyRequests(res.data || []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -124,7 +213,118 @@ const Profile = () => {
     if (tab === "settings") {
       setActiveTab("settings");
     }
+    if (tab === "notifications") {
+      setActiveTab("notifications");
+    }
+    if (tab === "requests") {
+      setActiveTab("requests");
+    }
   }, [location.search]);
+
+  useEffect(() => {
+    if (activeTab === "notifications") {
+      loadInbox();
+    }
+    if (activeTab === "requests") {
+      loadMyRequests();
+    }
+  }, [activeTab]);
+
+  // ======================== NOTIFICATIONS ========================
+  const handleMarkNotificationRead = async (id) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, isRead: 1 } : item,
+        ),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      /* keep list as-is if mark-read fails */
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) =>
+        prev.map((item) => ({ ...item, isRead: 1 })),
+      );
+      setUnreadCount(0);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // ======================== ADOPTION REQUESTS ========================
+  const handleIncomingStatus = async (req, status) => {
+    setUpdatingRequestId(req.id);
+    setRequestActionMessage("");
+    try {
+      await updateIncomingApplicationStatus(req.id, status);
+      setIncomingRequests((prev) =>
+        prev.map((item) =>
+          item.id === req.id ? { ...item, status } : item,
+        ),
+      );
+      setRequestActionMessage(
+        status === "approved"
+          ? `Approved ${req.fullName}'s request for ${req.petName}.`
+          : status === "rejected"
+            ? `Rejected ${req.fullName}'s request for ${req.petName}.`
+            : "Request updated.",
+      );
+      // Refresh unread count after related notifications are marked read.
+      const unreadRes = await getUnreadNotificationCount();
+      setUnreadCount(Number(unreadRes.data?.count || 0));
+      const notifRes = await getNotifications();
+      setNotifications(notifRes.data || []);
+
+      if (status === "approved" && req.petId) {
+        setRemoveListingPrompt({
+          petId: req.petId,
+          petName: req.petName || "this pet",
+          applicantName: req.fullName || "the applicant",
+        });
+      }
+    } catch (err) {
+      setRequestActionMessage(
+        err.response?.data?.message || "Could not update this request.",
+      );
+    } finally {
+      setUpdatingRequestId(null);
+    }
+  };
+
+  // ======================== REMOVE LISTING ========================
+  const handleConfirmRemoveListing = async () => {
+    if (!removeListingPrompt?.petId) return;
+    setIsRemovingListing(true);
+    try {
+      await deletePet(removeListingPrompt.petId);
+      setIncomingRequests((prev) =>
+        prev.filter(
+          (item) => Number(item.petId) !== Number(removeListingPrompt.petId),
+        ),
+      );
+      setMyPets((prev) =>
+        prev.filter(
+          (pet) => Number(pet.id) !== Number(removeListingPrompt.petId),
+        ),
+      );
+      setRequestActionMessage(
+        `Removed the listing for ${removeListingPrompt.petName}.`,
+      );
+      setRemoveListingPrompt(null);
+    } catch (err) {
+      setRequestActionMessage(
+        err.response?.data?.message || "Could not remove the listing.",
+      );
+    } finally {
+      setIsRemovingListing(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -166,6 +366,7 @@ const Profile = () => {
   };
 
   /** Persist profile details and refresh JWT/user snapshot. */
+  // ======================== PROFILE EDIT ========================
   const handleSaveProfile = async () => {
     if (!profileForm.firstName.trim() || !profileForm.lastName.trim()) {
       setSaveError("First name and last name are required.");
@@ -216,6 +417,7 @@ const Profile = () => {
   };
 
   /** Persist email change (requires current password). */
+  // ======================== EMAIL / PASSWORD / SETTINGS ========================
   const handleChangeEmail = async () => {
     if (!emailForm.newEmail.trim() || !emailForm.currentPassword) {
       setSettingsError("New email and current password are required.");
@@ -343,6 +545,7 @@ const Profile = () => {
   };
 
   /** Trigger hidden file input for avatar upload. */
+  // ======================== AVATAR ========================
   const handleChooseAvatar = () => {
     fileInputRef.current?.click();
   };
@@ -481,6 +684,24 @@ const Profile = () => {
                   onClick={() => setActiveTab("favorites")}
                 >
                   <span>Favorited pets</span>
+                </button>
+                <button
+                  className={`${styles.navItem} ${activeTab === "requests" ? styles.navItemActive : ""}`}
+                  onClick={() => setActiveTab("requests")}
+                >
+                  <span>
+                    My Requests
+                    {myRequests.length > 0 ? ` (${myRequests.length})` : ""}
+                  </span>
+                </button>
+                <button
+                  className={`${styles.navItem} ${activeTab === "notifications" ? styles.navItemActive : ""}`}
+                  onClick={() => setActiveTab("notifications")}
+                >
+                  <span>
+                    Notifications
+                    {unreadCount > 0 ? ` (${unreadCount})` : ""}
+                  </span>
                 </button>
                 <button
                   className={`${styles.navItem} ${activeTab === "settings" ? styles.navItemActive : ""}`}
@@ -679,7 +900,7 @@ const Profile = () => {
                       <p>You haven't listed any pets for adoption yet.</p>
                       <button
                         className={styles.actionButton}
-                        onClick={() => navigate("/add-pet")}
+                        onClick={() => navigate("/create-post")}
                       >
                         Add Your First Pet
                       </button>
@@ -687,9 +908,17 @@ const Profile = () => {
                   ) : (
                     <div className={styles.petsGrid}>
                       {myPets.map((pet) => (
-                        <div key={pet.id} className={styles.petCard}>
+                        <button
+                          key={pet.id}
+                          type="button"
+                          className={styles.petCard}
+                          onClick={() => navigate(`/adopt/${pet.id}`)}
+                        >
                           <img
-                            src={pet.image}
+                            src={
+                              (Array.isArray(pet.images) && pet.images[0]) ||
+                              pet.image
+                            }
                             alt={pet.name}
                             className={styles.petImage}
                           />
@@ -697,10 +926,13 @@ const Profile = () => {
                             <h3>{pet.name}</h3>
                             <p>{pet.breed}</p>
                             <span className={styles.petStatus}>
-                              {pet.adopted ? "Adopted" : "Available"}
+                              {String(pet.status || "").toLowerCase() ===
+                                "adopted" || pet.adopted
+                                ? "Adopted"
+                                : "Available"}
                             </span>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -708,6 +940,304 @@ const Profile = () => {
               )}
 
               {activeTab === "favorites" && <FavoritedPets />}
+
+              {activeTab === "requests" && (
+                <div className={styles.contentCard}>
+                  <h2 className={styles.sectionTitle}>My Adoption Requests</h2>
+                  <p className={styles.inboxHint}>
+                    Requests you sent to adopt pets and their current status.
+                  </p>
+
+                  {myRequestsLoading && (
+                    <p className={styles.inboxHint}>Loading your requests...</p>
+                  )}
+                  {!myRequestsLoading && myRequestsError && (
+                    <p className={styles.requestError}>{myRequestsError}</p>
+                  )}
+                  {!myRequestsLoading && !myRequestsError && (
+                    <>
+                      {myRequests.length === 0 ? (
+                        <div className={styles.emptyState}>
+                          <p>You haven&apos;t sent any adoption requests yet.</p>
+                          <button
+                            className={styles.actionButton}
+                            type="button"
+                            onClick={() => navigate("/")}
+                          >
+                            Browse pets
+                          </button>
+                        </div>
+                      ) : (
+                        <ul className={styles.inboxList}>
+                          {myRequests.map((req) => (
+                            <li key={req.id} className={styles.inboxItem}>
+                              <div className={styles.inboxItemHeader}>
+                                <strong>
+                                  Request for {req.petName || "a pet"}
+                                </strong>
+                                <span
+                                  className={`${styles.statusPill} ${styles[`status_${String(req.status || "pending").toLowerCase()}`] || ""}`}
+                                >
+                                  {formatRequestStatus(req.status)}
+                                </span>
+                              </div>
+                              <p className={styles.inboxBody}>{req.message}</p>
+                              <div className={styles.inboxMeta}>
+                                Sent{" "}
+                                {req.createdAt
+                                  ? new Date(req.createdAt).toLocaleString()
+                                  : "—"}
+                                {req.petBreed ? ` · ${req.petBreed}` : ""}
+                                {req.petType
+                                  ? ` · ${String(req.petType).charAt(0).toUpperCase()}${String(req.petType).slice(1).toLowerCase()}`
+                                  : ""}
+                                {ownerLabel(req)
+                                  ? ` · Posted by ${ownerLabel(req)}`
+                                  : ""}
+                              </div>
+                              <div className={styles.inboxActions}>
+                                {req.petId ? (
+                                  <button
+                                    type="button"
+                                    className={styles.inboxLinkBtn}
+                                    onClick={() =>
+                                      navigate(`/adopt/${req.petId}`)
+                                    }
+                                  >
+                                    View pet
+                                  </button>
+                                ) : null}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "notifications" && (
+                <div className={styles.contentCard}>
+                  <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>Notifications</h2>
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        className={styles.markAllReadBtn}
+                        onClick={handleMarkAllRead}
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+
+                  {inboxLoading && (
+                    <p className={styles.inboxHint}>Loading notifications...</p>
+                  )}
+                  {!inboxLoading && inboxError && (
+                    <p className={styles.requestError}>{inboxError}</p>
+                  )}
+
+                  {!inboxLoading && !inboxError && (
+                    <>
+                      <h3 className={styles.inboxSubtitle}>
+                        Requests for your pets
+                      </h3>
+                      {requestActionMessage && (
+                        <p className={styles.inboxHint}>{requestActionMessage}</p>
+                      )}
+                      {incomingRequests.length === 0 ? (
+                        <p className={styles.inboxHint}>
+                          No adoption requests for your pets yet.
+                        </p>
+                      ) : (
+                        <ul className={styles.inboxList}>
+                          {incomingRequests.map((req) => {
+                            const status = String(
+                              req.status || "pending",
+                            ).toLowerCase();
+                            const busy = updatingRequestId === req.id;
+                            return (
+                              <li key={req.id} className={styles.inboxItem}>
+                                <div className={styles.inboxItemHeader}>
+                                  <strong>
+                                    {req.fullName} wants to adopt {req.petName}
+                                  </strong>
+                                  <span
+                                    className={`${styles.statusPill} ${styles[`status_${status}`] || ""}`}
+                                  >
+                                    {formatRequestStatus(status)}
+                                  </span>
+                                </div>
+                                <p className={styles.inboxBody}>{req.message}</p>
+                                <div className={styles.inboxMetaBlock}>
+                                  {req.email ? (
+                                    <div className={styles.inboxMetaRow}>
+                                      <span>Email</span>
+                                      <strong>{req.email}</strong>
+                                    </div>
+                                  ) : null}
+                                  {req.phone ? (
+                                    <div className={styles.inboxMetaRow}>
+                                      <span>Phone</span>
+                                      <strong>{req.phone}</strong>
+                                    </div>
+                                  ) : null}
+                                  {req.createdAt ? (
+                                    <div className={styles.inboxMetaRow}>
+                                      <span>Received</span>
+                                      <strong>
+                                        {new Date(req.createdAt).toLocaleString()}
+                                      </strong>
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className={styles.inboxActions}>
+                                  {req.petId ? (
+                                    <button
+                                      type="button"
+                                      className={styles.inboxLinkBtn}
+                                      onClick={() =>
+                                        navigate(`/adopt/${req.petId}`)
+                                      }
+                                    >
+                                      View pet
+                                    </button>
+                                  ) : null}
+                                  {req.email ? (
+                                    <button
+                                      type="button"
+                                      className={styles.inboxLinkBtn}
+                                      onClick={() => {
+                                        const subject = encodeURIComponent(
+                                          `About adopting ${req.petName || "your pet"}`,
+                                        );
+                                        window.location.href = `mailto:${String(req.email).trim()}?subject=${subject}`;
+                                      }}
+                                    >
+                                      Email applicant
+                                    </button>
+                                  ) : null}
+                                  {status !== "approved" && (
+                                    <button
+                                      type="button"
+                                      className={styles.approveBtn}
+                                      disabled={busy}
+                                      onClick={() =>
+                                        handleIncomingStatus(req, "approved")
+                                      }
+                                    >
+                                      {busy ? "Saving..." : "Approve"}
+                                    </button>
+                                  )}
+                                  {status !== "rejected" && (
+                                    <button
+                                      type="button"
+                                      className={styles.rejectBtn}
+                                      disabled={busy}
+                                      onClick={() =>
+                                        handleIncomingStatus(req, "rejected")
+                                      }
+                                    >
+                                      Reject
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+
+                      <h3 className={styles.inboxSubtitle}>
+                        All notifications
+                      </h3>
+                      {notifications.length === 0 ? (
+                        <p className={styles.inboxHint}>
+                          You&apos;re all caught up.
+                        </p>
+                      ) : (
+                        <ul className={styles.inboxList}>
+                          {notifications.map((item) => {
+                            const unread = !Number(item.isRead);
+                            const type = String(item.type || "").toLowerCase();
+                            const isWarning = type === "admin_warning";
+                            const isReport = type === "content_report";
+                            const toneClass =
+                              type === "pet_comment"
+                                ? styles.inboxItemComment
+                                : type === "pet_like"
+                                  ? styles.inboxItemLike
+                                  : type === "adoption_request"
+                                    ? styles.inboxItemAdopt
+                                    : type === "application_update"
+                                      ? styles.inboxItemUpdate
+                                      : "";
+                            return (
+                              <li
+                                key={item.id}
+                                className={`${styles.inboxItem} ${unread ? styles.inboxItemUnread : ""} ${isWarning || isReport ? styles.inboxItemWarning : ""} ${toneClass}`}
+                              >
+                                <div className={styles.inboxItemTop}>
+                                  <NotificationTypeIcon
+                                    type={type}
+                                    showLabel
+                                  />
+                                  <span className={styles.inboxMeta}>
+                                    {item.createdAt
+                                      ? new Date(
+                                          item.createdAt,
+                                        ).toLocaleString()
+                                      : ""}
+                                  </span>
+                                </div>
+                                <div className={styles.inboxItemHeader}>
+                                  <strong>{item.title}</strong>
+                                </div>
+                                <p className={styles.inboxBody}>{item.body}</p>
+                                <div className={styles.inboxActions}>
+                                  {item.relatedPetId ? (
+                                    <button
+                                      type="button"
+                                      className={styles.inboxLinkBtn}
+                                      onClick={() =>
+                                        navigate(
+                                          `/adopt/${item.relatedPetId}`,
+                                        )
+                                      }
+                                    >
+                                      {type === "pet_comment"
+                                        ? "View comment"
+                                        : type === "pet_like"
+                                          ? "View post"
+                                          : type === "adoption_request" ||
+                                              type === "application_update"
+                                            ? "View listing"
+                                            : "View pet"}
+                                    </button>
+                                  ) : null}
+                                  {unread && (
+                                    <button
+                                      type="button"
+                                      className={styles.inboxLinkBtn}
+                                      onClick={() =>
+                                        handleMarkNotificationRead(item.id)
+                                      }
+                                    >
+                                      Mark as read
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {activeTab === "settings" && (
                 <div className={styles.contentCard}>
@@ -878,6 +1408,55 @@ const Profile = () => {
         )}
       </div>
       <Footer />
+
+      {removeListingPrompt &&
+        createPortal(
+          <div
+            className={styles.confirmOverlay}
+            onClick={() =>
+              !isRemovingListing ? setRemoveListingPrompt(null) : null
+            }
+            role="presentation"
+          >
+            <div
+              className={styles.confirmModal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="remove-listing-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className={styles.confirmEyebrow}>Adoption approved</p>
+              <h2 id="remove-listing-title" className={styles.confirmTitle}>
+                Remove this listing?
+              </h2>
+              <p className={styles.confirmBody}>
+                You approved{" "}
+                <strong>{removeListingPrompt.applicantName}</strong> to adopt{" "}
+                <strong>{removeListingPrompt.petName}</strong>. Would you like
+                to remove the adoption post now?
+              </p>
+              <div className={styles.confirmActions}>
+                <button
+                  type="button"
+                  className={styles.confirmKeepBtn}
+                  disabled={isRemovingListing}
+                  onClick={() => setRemoveListingPrompt(null)}
+                >
+                  Keep listing
+                </button>
+                <button
+                  type="button"
+                  className={styles.confirmRemoveBtn}
+                  disabled={isRemovingListing}
+                  onClick={handleConfirmRemoveListing}
+                >
+                  {isRemovingListing ? "Removing..." : "Remove listing"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 };

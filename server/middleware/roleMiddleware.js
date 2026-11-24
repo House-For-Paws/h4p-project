@@ -1,7 +1,11 @@
 /**
- * Factory: returns middleware that allows only listed roles (after authMiddleware).
- * Admin shortcuts: "admin" also allows administrator/superadmin for compatibility.
- * @param {...string} allowedRoles — e.g. roleMiddleware("admin")
+ * =============================================================================
+ * FILE: server/middleware/roleMiddleware.js
+ * ROLE: Role gate — use AFTER authMiddleware
+ * =============================================================================
+ * Example: router.get("/stats", authMiddleware, roleMiddleware("admin"), …)
+ * "admin" also accepts administrator / superadmin.
+ * =============================================================================
  */
 module.exports = (...allowedRoles) => {
   return (req, res, next) => {
@@ -13,7 +17,6 @@ module.exports = (...allowedRoles) => {
     const currentRole = normalizeRole(req.user.role);
     const normalizedAllowed = allowedRoles.map(normalizeRole);
 
-    // Accept common admin variants to avoid casing/data inconsistency lockouts.
     if (
       normalizedAllowed.includes("admin") &&
       (currentRole === "administrator" || currentRole === "superadmin")

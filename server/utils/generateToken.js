@@ -1,15 +1,17 @@
 /**
- * JWT creation — signed with JWT_SECRET; embeds user identity claims for stateless auth.
- * Never put huge blobs in payload (browser sends Bearer token on every request).
+ * =============================================================================
+ * FILE: server/utils/generateToken.js
+ * ROLE: Create / read JWT secret for auth
+ * =============================================================================
+ * Exports: generateToken(user), getJwtSecret()
+ * Keep payload small — large claims break HTTP Authorization headers.
+ * =============================================================================
  */
 const jwt = require("jsonwebtoken");
 
-/** Reads secret from env — MUST override default in production. */
 const getJwtSecret = () => process.env.JWT_SECRET || "dev-secret-change-me";
-/** Normalize role strings for consistent compares (admin vs Admin). */
 const normalizeRole = (role) => String(role || "").trim().toLowerCase();
 
-/** Keep payload small — large fields (e.g. base64 profile_picture) break HTTP header limits (431). */
 const generateToken = (user) =>
   jwt.sign(
     {

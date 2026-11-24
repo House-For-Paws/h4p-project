@@ -1,18 +1,20 @@
 /**
- * Password hashing utilities — PBKDF2 with random salt (no plain-text storage).
- * Stored format: "iterations:saltHex:hashHex" — verify recomputes hash with same salt.
+ * =============================================================================
+ * FILE: server/utils/password.js
+ * ROLE: Password hash + verify (PBKDF2)
+ * =============================================================================
+ * Stored format: "iterations:saltHex:hashHex"
+ * Exports: hashPassword, verifyPassword
+ * =============================================================================
  */
-const crypto = require("crypto"); // Node crypto for PBKDF2 + secure compare
+const crypto = require("crypto");
 
 const HASH_ALGORITHM = "sha256";
 const HASH_ITERATIONS = 100000;
 const HASH_KEY_LENGTH = 64;
 
-/**
- * Create salted hash string suitable for users.password column.
- * @param {string} password — plain text from registration/password change
- * @returns {string} iterations:salt:hash
- */
+// ======================== HASH ========================
+/** Create salted hash for users.password. */
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto
@@ -22,10 +24,8 @@ function hashPassword(password) {
   return `${HASH_ITERATIONS}:${salt}:${hash}`;
 }
 
-/**
- * Compare login password against stored hash; supports legacy plain-text fallback (3-part split).
- * Uses timing-safe equality when comparing derived hashes.
- */
+// ======================== VERIFY ========================
+/** Compare login password to stored hash (timing-safe). */
 function verifyPassword(password, storedPassword) {
   const parts = String(storedPassword || "").split(":");
 

@@ -1,9 +1,12 @@
 /**
- * commentController — thread replies on posts; enforces post exists before insert.
+ * =============================================================================
+ * FILE: server/controllers/commentController.js
+ * ROLE: Legacy forum post comments (/api/comments) — not pet_comments
+ * =============================================================================
  */
 const { query, run } = require("../config/db");
 
-/** POST /comments/:postId — auth user adds comment row linked to post + user. */
+// ======================== CREATE COMMENT ========================
 exports.createComment = async (req, res, next) => {
   const postId = Number(req.params.postId);
   const { text } = req.body;
@@ -41,7 +44,7 @@ exports.createComment = async (req, res, next) => {
   }
 };
 
-/** GET /comments/:postId — public read of all comments for a post (newest optional). */
+// ======================== LIST BY POST ========================
 exports.getCommentsByPost = async (req, res, next) => {
   const postId = Number(req.params.postId);
 
