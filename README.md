@@ -1,77 +1,48 @@
-🐾 House For Paws
+# House For Paws (H4P)
 
-House For Paws is a social platform designed to help pets find loving homes while building a trusted community of adopters, pet owners, and animal lovers.
+Social pet-adoption platform: browse listings, engage (like / favorite / comment), request adoption, message owners about a pet, and moderate content through an admin dashboard.
 
-The platform allows users to browse adoption posts, connect with pet owners, and share information about pets looking for a new home. Our goal is to simplify the adoption process and increase the chances of successful matches between pets and families.
+Built as a Software Engineering academic project by Amit Nosuyev.
 
-⸻
+## Features
 
-✨ Features
+- Browse **available** pets with search, type filters, and sorting
+- Create and manage adoption listings
+- JWT auth: register, login, profile, avatar, notification prefs
+- Change email / password / delete account from Profile → Settings
+- Likes, favorites, and listing comments
+- Adoption requests (apply → owner approve / reject; approving closes sibling pending requests)
+- Pet-linked messaging (floating chat panel), delete conversation, block / unblock users
+- Notifications: clear all / delete one; Messages badge separate from the bell
+- Reports: listing, comment, chat user (optional on block), site bug (with screenshot)
+- Admin dashboard: users, bans/warns, reports (+ chat history), comments, applications, animals (remove listings), stats
 
-* Browse pets available for adoption
-* Create and manage adoption posts
-* User registration and authentication
-* Personalized user profiles
-* Like and save pets
-* Responsive and modern UI
-* Community-focused adoption experience
+## Stack
 
-⸻
+| Layer | Tech |
+|-------|------|
+| Client | React, Vite, React Router, CSS Modules |
+| Server | Node.js, Express, JWT |
+| Database | MySQL |
 
-🎯 Project Goal
+## Setup
 
-Many existing adoption platforms are outdated, difficult to navigate, and lack social interaction features.
+1. Configure `server/.env` from `server/.env.example` (never commit `.env`)
+2. Set strong `JWT_SECRET` and `ADMIN_SECRET` (16+ characters; server refuses weak defaults)
+3. From repo root: `npm run dev` (API `:5000`, client `:5173`)
 
-House For Paws was created to provide a modern, user-friendly solution that helps connect pets with responsible adopters while supporting animal welfare organizations and local communities.
+Promote an admin (dev / optional): `POST /api/auth/promote` with `{ "email", "secret" }` matching `ADMIN_SECRET`.  
+In production, promote stays off unless `ENABLE_ADMIN_PROMOTE=true`.
 
-⸻
+## Security notes
 
-🛠 Technologies Used
+- Email-only forgot-password is **disabled** (use Settings while logged in)
+- Password hashing: PBKDF2 (plaintext fallback removed)
+- Banned users cannot log in; role/ban re-checked in auth middleware
+- Auth / promote / message-send rate limits
+- Public pet APIs do not expose owner emails; contact via messaging
 
-Frontend
+## Project layout
 
-* React
-* React Router
-* CSS Modules
-* JavaScript (ES6+)
-
-Backend
-
-* Node.js
-* Express.js
-* JWT Authentication
-* REST API
-
-Database
-
-* MySQL
-
-⸻
-
-🔐 Authentication
-
-The platform uses JWT (JSON Web Tokens) for authentication and secure user sessions.
-
-Users can:
-
-* Register
-* Login
-* Access protected features
-* Manage their profile
-
-⸻
-
-🚀 Future Improvements
-
-* Real-time messaging between adopters and owners
-* Pet adoption request management
-* Notifications system
-* Advanced search and filtering
-* Admin dashboard
-* Mobile application support
-
-⸻
-
-👨‍💻 Developer
-
-Developed by Amit Nosuyev as part of a Software Engineering project focused on creating a positive social impact through technology
+- `client/` — React SPA
+- `server/` — Express API + `sql/schema.sql`

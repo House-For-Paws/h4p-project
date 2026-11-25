@@ -22,7 +22,7 @@ exports.createPost = async (req, res, next) => {
 
     const posts = await query(
       `
-        SELECT posts.*, users.username, users.phone
+        SELECT posts.*, users.username
         FROM posts
         LEFT JOIN users ON users.id = posts.userId
         WHERE posts.id = ?
@@ -41,7 +41,7 @@ exports.createPost = async (req, res, next) => {
 exports.getPosts = async (req, res, next) => {
   try {
     const posts = await query(`
-      SELECT posts.*, COALESCE(users.username, 'Unknown') AS username, users.phone
+      SELECT posts.*, COALESCE(users.username, 'Unknown') AS username
       FROM posts
       LEFT JOIN users ON users.id = posts.userId
       ORDER BY posts.id DESC

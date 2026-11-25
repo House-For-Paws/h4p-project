@@ -13,7 +13,7 @@ import NotificationTypeIcon, {
 } from "../features/NotificationTypeIcon";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Flag } from "lucide-react";
+import { Bell, Flag, MessageCircle } from "lucide-react";
 import { getProfile } from "../../services/authService";
 import {
   getAdminPendingReportsCount,
@@ -24,10 +24,12 @@ import {
   getUnreadNotificationCount,
   markNotificationRead,
 } from "../../services/notificationService";
+import { getMessageUnreadCount } from "../../services/messageService";
 import {
   AUTH_TOKEN_CHANGED_EVENT,
   notifyAuthTokenChanged,
 } from "../../utils/authEvents";
+import { useMessageChat } from "../../contexts/MessageChatContext";
 
 function isAdminRole(role) {
   const value = String(role || "").toLowerCase();
@@ -39,6 +41,7 @@ function isAdminRole(role) {
 function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { openChat, toggleChat } = useMessageChat();
 
   const isLoginPage = location.pathname === "/login";
   const isRegisterPage = location.pathname === "/register";
@@ -46,6 +49,7 @@ function Navbar() {
   const isLoggedIn = localStorage.getItem("token");
   const [navUser, setNavUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
@@ -183,38 +187,56 @@ function Navbar() {
       if (!token) {
         if (active) {
           setUnreadCount(0);
+          setMessageUnreadCount(0);
           setNotifications([]);
         }
         return;
       }
       try {
-        const [countRes, listRes] = await Promise.all([
+        const [countRes, listRes, messageCountRes] = await Promise.all([
           getUnreadNotificationCount(),
           getNotifications(),
+          getMessageUnreadCount(),
         ]);
         if (!active) return;
         setUnreadCount(Number(countRes.data?.count || 0));
+        setMessageUnreadCount(Number(messageCountRes.data?.count || 0));
+        // Bell list skips pet_message — those belong on the Messages icon.
         setNotifications(
-          Array.isArray(listRes.data) ? listRes.data.slice(0, 8) : [],
+          Array.isArray(listRes.data)
+            ? listRes.data
+                .filter(
+                  (item) =>
+                    String(item?.type || "").toLowerCase() !== "pet_message",
+                )
+                .slice(0, 8)
+            : [],
         );
       } catch {
         if (active) {
           setUnreadCount(0);
+          setMessageUnreadCount(0);
           setNotifications([]);
         }
       }
     };
 
     loadNotifs();
-    const intervalId = window.setInterval(loadNotifs, 30000);
+    // Near-real-time: no WebSocket layer — short poll + focus/visibility refresh.
+    const intervalId = window.setInterval(loadNotifs, 4000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadNotifs();
+    };
     window.addEventListener(AUTH_TOKEN_CHANGED_EVENT, loadNotifs);
     window.addEventListener("focus", loadNotifs);
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       active = false;
       window.clearInterval(intervalId);
       window.removeEventListener(AUTH_TOKEN_CHANGED_EVENT, loadNotifs);
       window.removeEventListener("focus", loadNotifs);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [location.pathname, location.search]);
 
@@ -330,11 +352,35 @@ function Navbar() {
         /* ignore */
       }
     }
+    const type = String(item.type || "").toLowerCase();
+    if (type === "pet_message") {
+      openChat({
+        threadId: item.relatedThreadId || null,
+        petId: item.relatedThreadId ? null : item.relatedPetId || null,
+      });
+      return;
+    }
+    if (
+      type === "chat_report" ||
+      type === "bug_report" ||
+      type === "content_report"
+    ) {
+      navigate("/admin?section=reports");
+      return;
+    }
     if (item.relatedPetId) {
       navigate(`/adopt/${item.relatedPetId}`);
       return;
     }
     navigate("/profile?tab=notifications");
+  };
+
+  const goToMessages = () => {
+    setMobileOpen(false);
+    setNotifOpen(false);
+    if (!toggleChat()) {
+      navigate("/login");
+    }
   };
 
   const tokenPayload = getUserFromToken();
@@ -517,9 +563,16 @@ function Navbar() {
                               onClick={() => handleReportItemClick(report)}
                             >
                               <strong>
-                                {report.targetType === "comment"
+                                {String(report.targetType || "").toLowerCase() ===
+                                "comment"
                                   ? "Comment report"
-                                  : "Listing report"}
+                                  : String(report.targetType || "").toLowerCase() ===
+                                      "user"
+                                    ? "Chat report"
+                                    : String(report.targetType || "").toLowerCase() ===
+                                        "bug"
+                                      ? "Bug report"
+                                      : "Listing report"}
                               </strong>
                               <p>
                                 {report.reason}
@@ -551,6 +604,25 @@ function Navbar() {
                 )}
               </div>
             )}
+
+            <button
+              type="button"
+              className={styles.notifBellBtn}
+              onClick={goToMessages}
+              aria-label={
+                messageUnreadCount > 0
+                  ? `${messageUnreadCount} unread messages`
+                  : "Messages"
+              }
+              title="Messages"
+            >
+              <MessageCircle size={18} strokeWidth={2.2} />
+              {messageUnreadCount > 0 && (
+                <span className={styles.notifBadge}>
+                  {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
+                </span>
+              )}
+            </button>
 
             <div
               className={styles.notifWrap}
@@ -693,6 +765,10 @@ function Navbar() {
               <div className={styles.profileDropdown} role="menu">
                 <button type="button" className={styles.profileDropdownItem} onClick={goToProfile}>
                   Profile
+                </button>
+                <button type="button" className={styles.profileDropdownItem} onClick={goToMessages}>
+                  Messages
+                  {messageUnreadCount > 0 ? ` (${messageUnreadCount})` : ""}
                 </button>
                 <button type="button" className={styles.profileDropdownItem} onClick={goToNotifications}>
                   Notifications

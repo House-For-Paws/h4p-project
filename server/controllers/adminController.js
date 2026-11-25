@@ -49,6 +49,44 @@ function statusMapFromRows(rows, keys) {
   return map;
 }
 
+async function notifyApplicantDecision({
+  applicantId,
+  petId,
+  applicationId,
+  title,
+  body,
+}) {
+  if (!applicantId) return;
+  const applicants = await query(
+    "SELECT id, notify_application_updates FROM users WHERE id = ? LIMIT 1",
+    [applicantId],
+  );
+  const applicant = applicants[0];
+  const shouldNotify =
+    !applicant ||
+    applicant.notify_application_updates === null ||
+    Number(applicant.notify_application_updates) === 1;
+  if (!shouldNotify) return;
+
+  await run(
+    `
+      INSERT INTO notifications
+        (userId, type, title, body, relatedPetId, relatedApplicationId, isRead, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      applicantId,
+      "application_update",
+      title,
+      body,
+      petId || null,
+      applicationId,
+      0,
+      new Date(),
+    ],
+  );
+}
+
 // ======================== STATS ========================
 /** Bundled KPIs + charts + recent lists for AdminDashboard. */
 exports.getStats = async (req, res, next) => {
@@ -75,7 +113,7 @@ exports.getStats = async (req, res, next) => {
       query("SELECT COUNT(*) AS count FROM users"),
       query("SELECT COUNT(*) AS count FROM pets"),
       query("SELECT COUNT(*) AS count FROM posts"),
-      query("SELECT COUNT(*) AS count FROM comments"),
+      query("SELECT COUNT(*) AS count FROM pet_comments"),
       query("SELECT COUNT(*) AS count FROM adoption_applications"),
       query(
         "SELECT COUNT(*) AS count FROM pets WHERE LOWER(status) = 'adopted'",
@@ -456,6 +494,8 @@ exports.getAllReports = async (req, res, next) => {
           r.targetId,
           r.reason,
           r.description,
+          r.screenshot,
+          r.relatedThreadId,
           r.status,
           r.reviewedBy,
           r.reviewedAt,
@@ -467,28 +507,184 @@ exports.getAllReports = async (req, res, next) => {
           CASE
             WHEN r.targetType = 'pet' THEN p.name
             WHEN r.targetType = 'comment' THEN LEFT(c.text, 120)
+            WHEN r.targetType = 'bug' THEN LEFT(COALESCE(r.description, r.reason), 120)
+            WHEN r.targetType = 'user' THEN COALESCE(
+              NULLIF(TRIM(CONCAT(COALESCE(reported.firstName, ''), ' ', COALESCE(reported.lastName, ''))), ''),
+              reported.username,
+              CONCAT('User #', r.targetId)
+            )
             ELSE NULL
           END AS targetPreview,
           CASE
             WHEN r.targetType = 'pet' THEN p.id
             WHEN r.targetType = 'comment' THEN c.petId
+            WHEN r.targetType = 'user' THEN mt.petId
             ELSE NULL
           END AS relatedPetId,
           CASE
             WHEN r.targetType = 'pet' THEN p.ownerId
             WHEN r.targetType = 'comment' THEN c.userId
+            WHEN r.targetType = 'user' THEN r.targetId
             ELSE NULL
-          END AS targetOwnerId
+          END AS targetOwnerId,
+          reported.username AS reportedUsername,
+          reported.email AS reportedEmail,
+          mtPet.name AS relatedPetName
         FROM content_reports r
         LEFT JOIN users reporter ON reporter.id = r.reporterId
         LEFT JOIN pets p ON r.targetType = 'pet' AND p.id = r.targetId
         LEFT JOIN pet_comments c ON r.targetType = 'comment' AND c.id = r.targetId
+        LEFT JOIN users reported ON r.targetType = 'user' AND reported.id = r.targetId
+        LEFT JOIN message_threads mt ON mt.id = r.relatedThreadId
+        LEFT JOIN pets mtPet ON mtPet.id = mt.petId
         ORDER BY
           CASE WHEN LOWER(r.status) = 'pending' THEN 0 ELSE 1 END,
           r.createdAt DESC
       `,
     );
     res.json(rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/admin/reports/:id/messages
+ * Chat history for a messaging (user) report — for moderation review.
+ */
+exports.getReportMessages = async (req, res, next) => {
+  try {
+    const reportId = Number(req.params.id);
+    if (!reportId) {
+      return res.status(400).json({ message: "Invalid report id" });
+    }
+
+    const reports = await query(
+      `
+        SELECT
+          id,
+          targetType,
+          targetId,
+          reporterId,
+          relatedThreadId,
+          reason,
+          description,
+          status,
+          createdAt
+        FROM content_reports
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [reportId],
+    );
+    const report = reports[0];
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+    if (String(report.targetType || "").toLowerCase() !== "user") {
+      return res.status(400).json({
+        message: "Chat history is only available for messaging user reports",
+      });
+    }
+
+    let threadId = Number(report.relatedThreadId) || null;
+    // Fallback for older reports that only stored "Thread #N" in description.
+    if (!threadId && report.description) {
+      const match = String(report.description).match(/Thread\s*#\s*(\d+)/i);
+      if (match) threadId = Number(match[1]) || null;
+    }
+    if (!threadId) {
+      // Last resort: newest shared thread between reporter and reported user.
+      const shared = await query(
+        `
+          SELECT id
+          FROM message_threads
+          WHERE
+            (ownerId = ? AND participantId = ?)
+            OR (ownerId = ? AND participantId = ?)
+          ORDER BY lastMessageAt DESC, id DESC
+          LIMIT 1
+        `,
+        [
+          report.reporterId,
+          report.targetId,
+          report.targetId,
+          report.reporterId,
+        ],
+      );
+      threadId = shared[0]?.id ? Number(shared[0].id) : null;
+    }
+
+    if (!threadId) {
+      return res.status(404).json({
+        message: "No conversation found for this report",
+      });
+    }
+
+    const threads = await query(
+      `
+        SELECT
+          t.id,
+          t.petId,
+          t.ownerId,
+          t.participantId,
+          t.lastMessageAt,
+          t.createdAt,
+          p.name AS petName,
+          p.image AS petImage,
+          owner.username AS ownerUsername,
+          owner.firstName AS ownerFirstName,
+          owner.lastName AS ownerLastName,
+          participant.username AS participantUsername,
+          participant.firstName AS participantFirstName,
+          participant.lastName AS participantLastName
+        FROM message_threads t
+        LEFT JOIN pets p ON p.id = t.petId
+        LEFT JOIN users owner ON owner.id = t.ownerId
+        LEFT JOIN users participant ON participant.id = t.participantId
+        WHERE t.id = ?
+        LIMIT 1
+      `,
+      [threadId],
+    );
+    const thread = threads[0];
+    if (!thread) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const messages = await query(
+      `
+        SELECT
+          m.id,
+          m.threadId,
+          m.senderId,
+          m.body,
+          m.isRead,
+          m.createdAt,
+          u.username AS senderUsername,
+          u.firstName AS senderFirstName,
+          u.lastName AS senderLastName
+        FROM messages m
+        LEFT JOIN users u ON u.id = m.senderId
+        WHERE m.threadId = ?
+        ORDER BY m.createdAt ASC, m.id ASC
+      `,
+      [threadId],
+    );
+
+    res.json({
+      report: {
+        id: report.id,
+        reason: report.reason,
+        description: report.description,
+        status: report.status,
+        createdAt: report.createdAt,
+        reporterId: report.reporterId,
+        reportedUserId: report.targetId,
+      },
+      thread,
+      messages,
+    });
   } catch (error) {
     next(error);
   }
@@ -529,6 +725,29 @@ exports.updateReportStatus = async (req, res, next) => {
     );
 
     res.json({ message: "Report updated", id, status });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** DELETE /api/admin/reports/:id — permanently remove a report. */
+exports.deleteReport = async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ message: "Invalid report id" });
+    }
+
+    const existing = await query(
+      "SELECT id FROM content_reports WHERE id = ? LIMIT 1",
+      [id],
+    );
+    if (!existing[0]) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    await run("DELETE FROM content_reports WHERE id = ?", [id]);
+    res.json({ message: "Report deleted", id });
   } catch (error) {
     next(error);
   }
@@ -743,11 +962,34 @@ exports.updateApplicationStatus = async (req, res, next) => {
     }
 
     const existing = await query(
-      "SELECT id, petId FROM adoption_applications WHERE id = ? LIMIT 1",
+      `
+        SELECT a.id, a.petId, a.applicantId, a.status, p.name AS petName
+        FROM adoption_applications a
+        LEFT JOIN pets p ON p.id = a.petId
+        WHERE a.id = ?
+        LIMIT 1
+      `,
       [id],
     );
     if (!existing[0]) {
       return res.status(404).json({ message: "Application not found" });
+    }
+
+    if (status === "pending") {
+      const otherPending = await query(
+        `
+          SELECT id FROM adoption_applications
+          WHERE petId = ? AND applicantId = ? AND id <> ?
+            AND LOWER(status) = 'pending'
+          LIMIT 1
+        `,
+        [existing[0].petId, existing[0].applicantId, id],
+      );
+      if (otherPending[0]) {
+        return res.status(409).json({
+          message: "This applicant already has a pending request for this pet",
+        });
+      }
     }
 
     await run("UPDATE adoption_applications SET status = ? WHERE id = ?", [
@@ -761,6 +1003,36 @@ exports.updateApplicationStatus = async (req, res, next) => {
         "adopted",
         existing[0].petId,
       ]);
+
+      const siblings = await query(
+        `
+          SELECT id, applicantId
+          FROM adoption_applications
+          WHERE petId = ? AND id <> ? AND LOWER(status) = 'pending'
+        `,
+        [existing[0].petId, id],
+      );
+      if (siblings.length) {
+        await run(
+          `
+            UPDATE adoption_applications
+            SET status = 'rejected'
+            WHERE petId = ? AND id <> ? AND LOWER(status) = 'pending'
+          `,
+          [existing[0].petId, id],
+        );
+        const petLabel = existing[0].petName || "the pet";
+        for (const sibling of siblings) {
+          if (!sibling.applicantId) continue;
+          await notifyApplicantDecision({
+            applicantId: sibling.applicantId,
+            petId: existing[0].petId,
+            applicationId: sibling.id,
+            title: `Your adoption request for ${petLabel} was closed`,
+            body: `Another request for ${petLabel} was approved, so this request was closed.`,
+          });
+        }
+      }
     }
     if (
       (status === "rejected" || status === "cancelled" || status === "pending") &&
@@ -780,6 +1052,29 @@ exports.updateApplicationStatus = async (req, res, next) => {
           ["available", existing[0].petId],
         );
       }
+    }
+
+    if (existing[0].applicantId && status !== "pending") {
+      const petLabel = existing[0].petName || "the pet";
+      const title =
+        status === "approved"
+          ? `Your adoption request for ${petLabel} was approved`
+          : status === "cancelled"
+            ? `Your adoption request for ${petLabel} was cancelled`
+            : `Your adoption request for ${petLabel} was rejected`;
+      const body =
+        status === "approved"
+          ? `An admin approved your request to adopt ${petLabel}.`
+          : status === "cancelled"
+            ? `An admin cancelled your request to adopt ${petLabel}.`
+            : `An admin declined your request to adopt ${petLabel}.`;
+      await notifyApplicantDecision({
+        applicantId: existing[0].applicantId,
+        petId: existing[0].petId,
+        applicationId: id,
+        title,
+        body,
+      });
     }
 
     res.json({ message: "Application status updated", id, status });

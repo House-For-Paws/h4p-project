@@ -9,6 +9,41 @@
  */
 const { query, run } = require("../config/db");
 
+const PET_TRAIT_KEYS = [
+  "fromStreet",
+  "forAdoption",
+  "vaccinated",
+  "neutered",
+  "microchipped",
+  "houseTrained",
+  "goodWithKids",
+  "goodWithPets",
+  "specialNeeds",
+];
+
+function normalizeTraits(raw) {
+  const traits = Object.fromEntries(PET_TRAIT_KEYS.map((key) => [key, false]));
+  let source = raw;
+  if (Buffer.isBuffer(source)) source = source.toString("utf8");
+  if (typeof source === "string" && source.trim()) {
+    try {
+      source = JSON.parse(source);
+    } catch {
+      source = {};
+    }
+  }
+  if (!source || typeof source !== "object") return traits;
+  PET_TRAIT_KEYS.forEach((key) => {
+    traits[key] = Boolean(source[key]);
+  });
+  return traits;
+}
+
+function cleanTraitsPayload(raw) {
+  const traits = normalizeTraits(raw);
+  return JSON.stringify(traits);
+}
+
 /** Normalize DB pet row so clients always receive images as a string array. */
 function normalizePet(pet) {
   if (!pet) return pet;
@@ -39,11 +74,16 @@ function normalizePet(pet) {
     ...pet,
     image: images[0] || pet.image || "",
     images,
+    traits: normalizeTraits(pet.traits),
     likeCount: Number(pet.likeCount || 0),
     commentCount: Number(pet.commentCount || 0),
     viewCount: Number(pet.viewCount || 0),
     likedByMe: Boolean(Number(pet.likedByMe || 0)),
     favoritedByMe: Boolean(Number(pet.favoritedByMe || 0)),
+    requestedByMe: Boolean(Number(pet.requestedByMe || 0)),
+    myApplicationStatus: pet.myApplicationStatus
+      ? String(pet.myApplicationStatus).toLowerCase()
+      : null,
   };
 }
 
@@ -60,29 +100,54 @@ function engagementSelect(userId) {
          WHERE pfme.petId = pets.id AND pfme.userId = ${Number(userId)}
        ) AS favoritedByMe`
     : "0 AS favoritedByMe";
+  const requestedSelect = userId
+    ? `EXISTS(
+         SELECT 1 FROM adoption_applications aame
+         WHERE aame.petId = pets.id
+           AND aame.applicantId = ${Number(userId)}
+           AND LOWER(aame.status) = 'pending'
+       ) AS requestedByMe`
+    : "0 AS requestedByMe";
+  const myAppStatusSelect = userId
+    ? `(
+         SELECT a.status
+         FROM adoption_applications a
+         WHERE a.petId = pets.id AND a.applicantId = ${Number(userId)}
+         ORDER BY a.createdAt DESC, a.id DESC
+         LIMIT 1
+       ) AS myApplicationStatus`
+    : "NULL AS myApplicationStatus";
 
   return `
     pets.*,
     u.username AS ownerUsername,
     u.firstName AS ownerFirstName,
     u.lastName AS ownerLastName,
-    u.email AS ownerEmail,
     u.profile_picture AS ownerAvatar,
     (SELECT COUNT(*) FROM pet_likes pl WHERE pl.petId = pets.id) AS likeCount,
     (SELECT COUNT(*) FROM pet_comments pc WHERE pc.petId = pets.id) AS commentCount,
     ${likedSelect},
-    ${favoritedSelect}
+    ${favoritedSelect},
+    ${requestedSelect},
+    ${myAppStatusSelect}
   `;
 }
 
 // ======================== LIST PETS ========================
 /** GET /api/pets — filters: type, search, sort=likes|comments|views|newest */
 exports.getPets = async (req, res, next) => {
-  const { type, search, sort } = req.query;
+  const { type, search, sort, status } = req.query;
   const userId = req.user?.id ? Number(req.user.id) : null;
 
   const where = [];
   const params = [];
+
+  // Default: browse available pets only. Pass status=all for profile/owner views.
+  const statusKey = String(status || "available").trim().toLowerCase();
+  if (statusKey && statusKey !== "all") {
+    where.push("LOWER(pets.status) = ?");
+    params.push(statusKey);
+  }
 
   if (type && type !== "all") {
     where.push("pets.type = ?");
@@ -178,6 +243,42 @@ exports.getPetById = async (req, res, next) => {
   }
 };
 
+// ======================== STATS (light poll) ========================
+/** GET /api/pets/:id/stats — view/like/comment counts without heavy joins. */
+exports.getPetStats = async (req, res, next) => {
+  try {
+    const petId = Number(req.params.id);
+    if (!petId) {
+      return res.status(400).json({ message: "Invalid pet id" });
+    }
+
+    const rows = await query(
+      `
+        SELECT
+          pets.viewCount,
+          (SELECT COUNT(*) FROM pet_likes pl WHERE pl.petId = pets.id) AS likeCount,
+          (SELECT COUNT(*) FROM pet_comments pc WHERE pc.petId = pets.id) AS commentCount
+        FROM pets
+        WHERE pets.id = ?
+        LIMIT 1
+      `,
+      [petId],
+    );
+    const pet = rows[0];
+    if (!pet) {
+      return res.status(404).json({ message: "Pet not found" });
+    }
+
+    res.json({
+      viewCount: Number(pet.viewCount || 0),
+      likeCount: Number(pet.likeCount || 0),
+      commentCount: Number(pet.commentCount || 0),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ======================== VIEWS ========================
 /** POST /api/pets/:id/view — count one page view. */
 exports.recordPetView = async (req, res, next) => {
@@ -204,10 +305,28 @@ exports.recordPetView = async (req, res, next) => {
 // ======================== CREATE PET ========================
 /** POST /api/pets — auth required. */
 exports.createPet = async (req, res, next) => {
-  const { name, breed, age, location, type, image, images, gender } = req.body;
+  const {
+    name,
+    breed,
+    age,
+    location,
+    type,
+    image,
+    images,
+    gender,
+    details,
+    traits,
+  } = req.body;
 
   if (!name || !breed || !age || !location || !type || !gender) {
     return res.status(400).json({ message: "Missing pet fields" });
+  }
+
+  const cleanDetails = String(details || "").trim();
+  if (cleanDetails.length > 2000) {
+    return res
+      .status(400)
+      .json({ message: "Details must be under 2000 characters" });
   }
 
   const gallery = Array.isArray(images)
@@ -217,14 +336,15 @@ exports.createPet = async (req, res, next) => {
     gallery.push(String(image).trim());
   }
   const coverImage = gallery[0] || image || "";
+  const traitsJson = cleanTraitsPayload(traits);
 
   try {
     const createdAt = new Date();
     const result = await run(
       `
         INSERT INTO pets
-          (name, breed, age, location, type, image, images, gender, status, ownerId, createdAt, viewCount)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+          (name, breed, age, location, type, image, images, gender, details, traits, status, ownerId, createdAt, viewCount)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
       `,
       [
         name,
@@ -235,6 +355,8 @@ exports.createPet = async (req, res, next) => {
         coverImage,
         JSON.stringify(gallery),
         gender,
+        cleanDetails || null,
+        traitsJson,
         "available",
         req.user.id,
         createdAt,
@@ -253,6 +375,113 @@ exports.createPet = async (req, res, next) => {
     );
 
     res.status(201).json(normalizePet(pets[0]));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ======================== UPDATE PET ========================
+/** PATCH /api/pets/:id — owner only. */
+exports.updatePet = async (req, res, next) => {
+  try {
+    const petId = Number(req.params.id);
+    if (!petId) {
+      return res.status(400).json({ message: "Invalid pet id" });
+    }
+
+    const existing = await query(
+      "SELECT id, ownerId FROM pets WHERE id = ? LIMIT 1",
+      [petId],
+    );
+    const pet = existing[0];
+    if (!pet) {
+      return res.status(404).json({ message: "Pet not found" });
+    }
+    if (Number(pet.ownerId) !== Number(req.user.id)) {
+      return res
+        .status(403)
+        .json({ message: "Only the owner can edit this listing" });
+    }
+
+    const {
+      name,
+      breed,
+      age,
+      location,
+      type,
+      image,
+      images,
+      gender,
+      details,
+      traits,
+    } = req.body;
+
+    if (!name || !breed || !age || !location || !type || !gender) {
+      return res.status(400).json({ message: "Missing pet fields" });
+    }
+
+    const cleanDetails = String(details || "").trim();
+    if (cleanDetails.length > 2000) {
+      return res
+        .status(400)
+        .json({ message: "Details must be under 2000 characters" });
+    }
+
+    const gallery = Array.isArray(images)
+      ? images.map((url) => String(url || "").trim()).filter(Boolean)
+      : [];
+    if (!gallery.length && image) {
+      gallery.push(String(image).trim());
+    }
+    if (!gallery.length) {
+      return res.status(400).json({ message: "Add at least one photo" });
+    }
+    const coverImage = gallery[0];
+    const traitsJson = cleanTraitsPayload(traits);
+
+    await run(
+      `
+        UPDATE pets
+        SET
+          name = ?,
+          breed = ?,
+          age = ?,
+          location = ?,
+          type = ?,
+          image = ?,
+          images = ?,
+          gender = ?,
+          details = ?,
+          traits = ?
+        WHERE id = ?
+      `,
+      [
+        String(name).trim(),
+        String(breed).trim(),
+        String(age).trim(),
+        String(location).trim(),
+        String(type).trim(),
+        coverImage,
+        JSON.stringify(gallery),
+        String(gender).trim(),
+        cleanDetails || null,
+        traitsJson,
+        petId,
+      ],
+    );
+
+    const pets = await query(
+      `
+        SELECT ${engagementSelect(req.user.id)}
+        FROM pets
+        LEFT JOIN users u ON u.id = pets.ownerId
+        WHERE pets.id = ?
+        LIMIT 1
+      `,
+      [petId],
+    );
+
+    res.json(normalizePet(pets[0]));
   } catch (error) {
     next(error);
   }
@@ -581,6 +810,51 @@ exports.addPetComment = async (req, res, next) => {
 
     res.status(201).json({
       comment,
+      commentCount: Number(counts[0]?.count || 0),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ======================== COMMENTS (delete own) ========================
+/** DELETE /api/pets/:id/comments/:commentId — comment author only. */
+exports.deletePetComment = async (req, res, next) => {
+  try {
+    const petId = Number(req.params.id);
+    const commentId = Number(req.params.commentId);
+    if (!petId || !commentId) {
+      return res.status(400).json({ message: "Invalid comment id" });
+    }
+
+    const rows = await query(
+      `
+        SELECT id, petId, userId
+        FROM pet_comments
+        WHERE id = ? AND petId = ?
+        LIMIT 1
+      `,
+      [commentId, petId],
+    );
+    const comment = rows[0];
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+    if (Number(comment.userId) !== Number(req.user.id)) {
+      return res
+        .status(403)
+        .json({ message: "You can only remove your own comments" });
+    }
+
+    await run("DELETE FROM pet_comments WHERE id = ?", [commentId]);
+    const counts = await query(
+      "SELECT COUNT(*) AS count FROM pet_comments WHERE petId = ?",
+      [petId],
+    );
+
+    res.json({
+      message: "Comment removed",
+      id: commentId,
       commentCount: Number(counts[0]?.count || 0),
     });
   } catch (error) {

@@ -1,19 +1,43 @@
 /**
  * =============================================================================
  * FILE: client/src/pages/CreateAdoptionPost.jsx
- * ROLE: Create a new adoption listing (POST /api/pets)
+ * ROLE: Create or edit an adoption listing (POST/PATCH /api/pets)
  * =============================================================================
  */
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../Components/layout/Navbar";
 import Footer from "../Components/layout/Footer";
 import styles from "../styles/createAdoptionPost.module.css";
-import { createPet } from "../services/userService";
+import { createPet, getPet, updatePet } from "../services/userService";
 import {
+  emptyPetTraits,
+  getBreedOptionsForType,
   getCreatePetFieldError,
+  ISRAEL_CITY_OPTIONS,
+  normalizePetTraits,
+  PET_AGE_OPTIONS,
+  PET_TRAIT_OPTIONS,
   validateCreatePetForm,
 } from "../utils/createPetValidation";
+
+function getCurrentUserId() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload?.id != null ? Number(payload.id) : null;
+  } catch {
+    return null;
+  }
+}
+
+function petImages(pet) {
+  if (Array.isArray(pet?.images) && pet.images.length) {
+    return pet.images.filter(Boolean);
+  }
+  return [pet?.image].filter(Boolean);
+}
 
 const MAX_IMAGES = 3;
 const MAX_IMAGE_BYTES = 4_000_000;
@@ -59,6 +83,9 @@ function compressImageDataUrl(dataUrl) {
 
 function CreateAdoptionPost() {
   const navigate = useNavigate();
+  const { id: editIdParam } = useParams();
+  const editId = editIdParam ? Number(editIdParam) : null;
+  const isEditMode = Boolean(editId);
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -68,37 +95,246 @@ function CreateAdoptionPost() {
     location: "",
     type: "dog",
     gender: "Male",
+    details: "",
+    traits: emptyPetTraits(),
     images: [],
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(isEditMode);
   const [isAuthed, setIsAuthed] = useState(
     () => Boolean(localStorage.getItem("token")),
   );
+  const [ageMenuOpen, setAgeMenuOpen] = useState(false);
+  const [breedMenuOpen, setBreedMenuOpen] = useState(false);
+  const [locationMenuOpen, setLocationMenuOpen] = useState(false);
+  const [breedFilter, setBreedFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const ageMenuRef = useRef(null);
+  const breedMenuRef = useRef(null);
+  const locationMenuRef = useRef(null);
+
+  const ageOptions = useMemo(() => {
+    if (formData.age && !PET_AGE_OPTIONS.includes(formData.age)) {
+      return [formData.age, ...PET_AGE_OPTIONS];
+    }
+    return PET_AGE_OPTIONS;
+  }, [formData.age]);
+
+  const breedOptions = useMemo(() => {
+    const options = getBreedOptionsForType(formData.type);
+    if (formData.breed && !options.includes(formData.breed)) {
+      return [formData.breed, ...options];
+    }
+    return options;
+  }, [formData.type, formData.breed]);
+
+  const cityOptions = useMemo(() => {
+    if (formData.location && !ISRAEL_CITY_OPTIONS.includes(formData.location)) {
+      return [formData.location, ...ISRAEL_CITY_OPTIONS];
+    }
+    return ISRAEL_CITY_OPTIONS;
+  }, [formData.location]);
 
   useEffect(() => {
     const hasToken = Boolean(localStorage.getItem("token"));
     setIsAuthed(hasToken);
     if (!hasToken) {
-      navigate("/login", { replace: true, state: { from: "/create-post" } });
+      navigate("/login", {
+        replace: true,
+        state: {
+          from: isEditMode ? `/edit-post/${editId}` : "/create-post",
+        },
+      });
     }
-  }, [navigate]);
+  }, [navigate, isEditMode, editId]);
+
+  useEffect(() => {
+    if (!isEditMode || !isAuthed) return undefined;
+    let cancelled = false;
+
+    const loadListing = async () => {
+      setIsLoadingEdit(true);
+      setFormError("");
+      try {
+        const res = await getPet(editId);
+        const pet = res.data;
+        if (cancelled) return;
+        const currentUserId = getCurrentUserId();
+        if (
+          !pet ||
+          currentUserId == null ||
+          Number(pet.ownerId) !== currentUserId
+        ) {
+          setFormError("You can only edit your own listing.");
+          setTimeout(() => navigate(`/adopt/${editId}`, { replace: true }), 1200);
+          return;
+        }
+        setFormData({
+          name: pet.name || "",
+          breed: pet.breed || "",
+          age: pet.age || "",
+          location: pet.location || "",
+          type: pet.type || "dog",
+          gender: pet.gender || "Male",
+          details: pet.details || "",
+          traits: normalizePetTraits(pet.traits),
+          images: petImages(pet),
+        });
+      } catch (err) {
+        if (cancelled) return;
+        setFormError(
+          err.response?.data?.message || "Could not load this listing.",
+        );
+      } finally {
+        if (!cancelled) setIsLoadingEdit(false);
+      }
+    };
+
+    loadListing();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, isAuthed, editId, navigate]);
+
+  useEffect(() => {
+    if (!ageMenuOpen && !breedMenuOpen && !locationMenuOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (ageMenuOpen && !ageMenuRef.current?.contains(event.target)) {
+        setAgeMenuOpen(false);
+        setTouched((prev) => ({ ...prev, age: true }));
+        setFieldErrors((prev) => ({
+          ...prev,
+          age: getCreatePetFieldError("age", formData.age, formData),
+        }));
+      }
+      if (breedMenuOpen && !breedMenuRef.current?.contains(event.target)) {
+        setBreedMenuOpen(false);
+        setTouched((prev) => ({ ...prev, breed: true }));
+        setFieldErrors((prev) => ({
+          ...prev,
+          breed: getCreatePetFieldError("breed", formData.breed, formData),
+        }));
+      }
+      if (
+        locationMenuOpen &&
+        !locationMenuRef.current?.contains(event.target)
+      ) {
+        setLocationMenuOpen(false);
+        setTouched((prev) => ({ ...prev, location: true }));
+        setFieldErrors((prev) => ({
+          ...prev,
+          location: getCreatePetFieldError(
+            "location",
+            formData.location,
+            formData,
+          ),
+        }));
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setAgeMenuOpen(false);
+        setBreedMenuOpen(false);
+        setLocationMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [ageMenuOpen, breedMenuOpen, locationMenuOpen, formData]);
+
+  const filteredBreeds = breedOptions.filter((breed) =>
+    breed.toLowerCase().includes(breedFilter.trim().toLowerCase()),
+  );
+
+  const filteredCities = cityOptions.filter((city) =>
+    city.toLowerCase().includes(locationFilter.trim().toLowerCase()),
+  );
 
   const handleChange = (field) => (e) => {
     const value = e.target.value;
     setFormData((prev) => {
-      const next = { ...prev, [field]: value };
-      if (touched[field] || fieldErrors[field]) {
+      let next = { ...prev, [field]: value };
+      // Switching dog/cat resets breed when it no longer fits the type list.
+      if (field === "type") {
+        const allowed = getBreedOptionsForType(value);
+        if (prev.breed && !allowed.includes(prev.breed)) {
+          next = { ...next, breed: "" };
+        }
+      }
+      if (touched[field] || fieldErrors[field] || field === "type") {
         setFieldErrors((prevErrors) => ({
           ...prevErrors,
-          [field]: getCreatePetFieldError(field, value, next),
+          [field]: getCreatePetFieldError(field, next[field], next),
+          ...(field === "type"
+            ? { breed: getCreatePetFieldError("breed", next.breed, next) }
+            : {}),
         }));
       }
       return next;
     });
     setFormError("");
+  };
+
+  const selectAge = (value) => {
+    const next = { ...formData, age: value };
+    setFormData(next);
+    setTouched((prev) => ({ ...prev, age: true }));
+    setFieldErrors((prev) => ({
+      ...prev,
+      age: getCreatePetFieldError("age", value, next),
+    }));
+    setAgeMenuOpen(false);
+    setFormError("");
+  };
+
+  const selectBreed = (value) => {
+    const next = { ...formData, breed: value };
+    setFormData(next);
+    setTouched((prev) => ({ ...prev, breed: true }));
+    setFieldErrors((prev) => ({
+      ...prev,
+      breed: getCreatePetFieldError("breed", value, next),
+    }));
+    setBreedMenuOpen(false);
+    setBreedFilter("");
+    setFormError("");
+  };
+
+  const selectLocation = (value) => {
+    const next = { ...formData, location: value };
+    setFormData(next);
+    setTouched((prev) => ({ ...prev, location: true }));
+    setFieldErrors((prev) => ({
+      ...prev,
+      location: getCreatePetFieldError("location", value, next),
+    }));
+    setLocationMenuOpen(false);
+    setLocationFilter("");
+    setFormError("");
+  };
+
+  const toggleTrait = (traitId) => {
+    setFormData((prev) => ({
+      ...prev,
+      traits: {
+        ...prev.traits,
+        [traitId]: !prev.traits?.[traitId],
+      },
+    }));
+    setFormError("");
+  };
+
+  const closeOtherMenus = (keep) => {
+    if (keep !== "age") setAgeMenuOpen(false);
+    if (keep !== "breed") setBreedMenuOpen(false);
+    if (keep !== "location") setLocationMenuOpen(false);
   };
 
   const handleBlur = (field) => () => {
@@ -168,7 +404,8 @@ function CreateAdoptionPost() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const errors = validateCreatePetForm(formData);
+    const payloadForm = formData;
+    const errors = validateCreatePetForm(payloadForm);
     setFieldErrors(errors);
     setTouched({
       name: true,
@@ -177,35 +414,61 @@ function CreateAdoptionPost() {
       location: true,
       type: true,
       gender: true,
+      details: true,
       images: true,
     });
 
     if (Object.keys(errors).length) {
-      setFormError("Please fix the highlighted fields before publishing.");
+      setFormError(
+        isEditMode
+          ? "Please fix the highlighted fields before saving."
+          : "Please fix the highlighted fields before publishing.",
+      );
       return;
     }
 
     setIsSubmitting(true);
     setFormError("");
 
+    const payload = {
+      name: payloadForm.name.trim(),
+      breed: payloadForm.breed.trim(),
+      age: payloadForm.age.trim(),
+      location: payloadForm.location.trim(),
+      type: payloadForm.type,
+      gender: payloadForm.gender,
+      details: String(payloadForm.details || "").trim(),
+      traits: normalizePetTraits(payloadForm.traits),
+      image: payloadForm.images[0],
+      images: payloadForm.images,
+    };
+
     try {
-      await createPet({
-        name: formData.name.trim(),
-        breed: formData.breed.trim(),
-        age: formData.age.trim(),
-        location: formData.location.trim(),
-        type: formData.type,
-        gender: formData.gender,
-        image: formData.images[0],
-        images: formData.images,
-      });
-      navigate("/", { replace: true });
+      if (isEditMode) {
+        await updatePet(editId, payload);
+        navigate(`/adopt/${editId}`, { replace: true });
+      } else {
+        await createPet(payload);
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       if (err.response?.status === 401) {
-        setFormError("Please log in again to publish a post.");
-        navigate("/login", { replace: true, state: { from: "/create-post" } });
+        setFormError("Please log in again to continue.");
+        navigate("/login", {
+          replace: true,
+          state: {
+            from: isEditMode ? `/edit-post/${editId}` : "/create-post",
+          },
+        });
+      } else if (err.response?.status === 403) {
+        setFormError(
+          err.response?.data?.message || "You can only edit your own listing.",
+        );
       } else {
-        setFormError(err.response?.data?.message || "Could not create post.");
+        setFormError(
+          err.response?.data?.message ||
+            (isEditMode ? "Could not save changes." : "Could not create post."),
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -223,13 +486,23 @@ function CreateAdoptionPost() {
         <div className={styles.card}>
           <div className={styles.header}>
             <p className={styles.eyebrow}>Adoption listing</p>
-            <h1>Create Adoption Post</h1>
+            <h1>{isEditMode ? "Edit listing" : "Create Adoption Post"}</h1>
             <p>
-              Share a pet looking for a home — add details and up to 3 photos.
+              {isEditMode
+                ? "Update details or photos for your listing."
+                : "Share a pet looking for a home — add details and up to 3 photos."}
             </p>
           </div>
 
-          <form className={styles.form} onSubmit={handleSubmit}>
+          {isLoadingEdit ? (
+            <p className={styles.uploadHint}>Loading your listing…</p>
+          ) : null}
+
+          <form
+            className={styles.form}
+            onSubmit={handleSubmit}
+            style={isLoadingEdit ? { opacity: 0.55, pointerEvents: "none" } : undefined}
+          >
             <div className={styles.grid}>
               <div className={styles.field}>
                 <label className={styles.label}>Pet name *</label>
@@ -246,52 +519,6 @@ function CreateAdoptionPost() {
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Breed *</label>
-                <input
-                  className={inputClass("breed")}
-                  value={formData.breed}
-                  onChange={handleChange("breed")}
-                  onBlur={handleBlur("breed")}
-                  placeholder="Golden Retriever"
-                />
-                {fieldErrors.breed && (
-                  <p className={styles.fieldError}>{fieldErrors.breed}</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.grid}>
-              <div className={styles.field}>
-                <label className={styles.label}>Age *</label>
-                <input
-                  className={inputClass("age")}
-                  value={formData.age}
-                  onChange={handleChange("age")}
-                  onBlur={handleBlur("age")}
-                  placeholder="2 years"
-                />
-                {fieldErrors.age && (
-                  <p className={styles.fieldError}>{fieldErrors.age}</p>
-                )}
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label}>Location *</label>
-                <input
-                  className={inputClass("location")}
-                  value={formData.location}
-                  onChange={handleChange("location")}
-                  onBlur={handleBlur("location")}
-                  placeholder="Tel Aviv"
-                />
-                {fieldErrors.location && (
-                  <p className={styles.fieldError}>{fieldErrors.location}</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.grid}>
-              <div className={styles.field}>
                 <label className={styles.label}>Type *</label>
                 <select
                   className={inputClass("type")}
@@ -304,6 +531,75 @@ function CreateAdoptionPost() {
                 </select>
                 {fieldErrors.type && (
                   <p className={styles.fieldError}>{fieldErrors.type}</p>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.grid}>
+              <div className={styles.field}>
+                <label className={styles.label}>Breed *</label>
+                <div className={styles.dropdown} ref={breedMenuRef}>
+                  <button
+                    type="button"
+                    className={`${styles.dropdownTrigger} ${inputClass("breed")}`}
+                    aria-haspopup="listbox"
+                    aria-expanded={breedMenuOpen}
+                    onClick={() => {
+                      setBreedMenuOpen((open) => !open);
+                      closeOtherMenus("breed");
+                      if (!breedMenuOpen) setBreedFilter("");
+                    }}
+                  >
+                    <span>{formData.breed || "Select breed"}</span>
+                    <span className={styles.dropdownCaret} aria-hidden="true">
+                      ▾
+                    </span>
+                  </button>
+                  {breedMenuOpen ? (
+                    <div className={styles.dropdownPanel}>
+                      <input
+                        type="text"
+                        className={styles.dropdownSearch}
+                        value={breedFilter}
+                        onChange={(e) => setBreedFilter(e.target.value)}
+                        placeholder="Search breed..."
+                        aria-label="Search breed"
+                        autoFocus
+                      />
+                      <ul
+                        className={styles.dropdownMenu}
+                        role="listbox"
+                        aria-label="Pet breed"
+                      >
+                        {filteredBreeds.length ? (
+                          filteredBreeds.map((breed) => (
+                            <li key={breed}>
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={formData.breed === breed}
+                                className={`${styles.dropdownOption}${
+                                  formData.breed === breed
+                                    ? ` ${styles.dropdownOptionActive}`
+                                    : ""
+                                }`}
+                                onClick={() => selectBreed(breed)}
+                              >
+                                {breed}
+                              </button>
+                            </li>
+                          ))
+                        ) : (
+                          <li className={styles.dropdownEmpty}>
+                            No breeds match
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+                {fieldErrors.breed && (
+                  <p className={styles.fieldError}>{fieldErrors.breed}</p>
                 )}
               </div>
 
@@ -321,6 +617,166 @@ function CreateAdoptionPost() {
                 {fieldErrors.gender && (
                   <p className={styles.fieldError}>{fieldErrors.gender}</p>
                 )}
+              </div>
+            </div>
+
+            <div className={styles.grid}>
+              <div className={styles.field}>
+                <label className={styles.label}>Age *</label>
+                <div className={styles.dropdown} ref={ageMenuRef}>
+                  <button
+                    type="button"
+                    className={`${styles.dropdownTrigger} ${inputClass("age")}`}
+                    aria-haspopup="listbox"
+                    aria-expanded={ageMenuOpen}
+                    onClick={() => {
+                      setAgeMenuOpen((open) => !open);
+                      closeOtherMenus("age");
+                    }}
+                  >
+                    <span>
+                      {formData.age || "Select age"}
+                    </span>
+                    <span className={styles.dropdownCaret} aria-hidden="true">
+                      ▾
+                    </span>
+                  </button>
+                  {ageMenuOpen ? (
+                    <div className={styles.dropdownPanel}>
+                      <ul
+                        className={styles.dropdownMenu}
+                        role="listbox"
+                        aria-label="Pet age"
+                      >
+                        {ageOptions.map((option) => (
+                          <li key={option}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={formData.age === option}
+                              className={`${styles.dropdownOption}${
+                                formData.age === option
+                                  ? ` ${styles.dropdownOptionActive}`
+                                  : ""
+                              }`}
+                              onClick={() => selectAge(option)}
+                            >
+                              {option}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+                {fieldErrors.age && (
+                  <p className={styles.fieldError}>{fieldErrors.age}</p>
+                )}
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Location *</label>
+                <div className={styles.dropdown} ref={locationMenuRef}>
+                  <button
+                    type="button"
+                    className={`${styles.dropdownTrigger} ${inputClass("location")}`}
+                    aria-haspopup="listbox"
+                    aria-expanded={locationMenuOpen}
+                    onClick={() => {
+                      setLocationMenuOpen((open) => !open);
+                      closeOtherMenus("location");
+                      if (!locationMenuOpen) setLocationFilter("");
+                    }}
+                  >
+                    <span>{formData.location || "Select city"}</span>
+                    <span className={styles.dropdownCaret} aria-hidden="true">
+                      ▾
+                    </span>
+                  </button>
+                  {locationMenuOpen ? (
+                    <div className={styles.dropdownPanel}>
+                      <input
+                        type="text"
+                        className={styles.dropdownSearch}
+                        value={locationFilter}
+                        onChange={(e) => setLocationFilter(e.target.value)}
+                        placeholder="Search city..."
+                        aria-label="Search city"
+                        autoFocus
+                      />
+                      <ul
+                        className={styles.dropdownMenu}
+                        role="listbox"
+                        aria-label="City in Israel"
+                      >
+                        {filteredCities.length ? (
+                          filteredCities.map((city) => (
+                            <li key={city}>
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={formData.location === city}
+                                className={`${styles.dropdownOption}${
+                                  formData.location === city
+                                    ? ` ${styles.dropdownOptionActive}`
+                                    : ""
+                                }`}
+                                onClick={() => selectLocation(city)}
+                              >
+                                {city}
+                              </button>
+                            </li>
+                          ))
+                        ) : (
+                          <li className={styles.dropdownEmpty}>No cities match</li>
+                        )}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+                {fieldErrors.location && (
+                  <p className={styles.fieldError}>{fieldErrors.location}</p>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>About this animal</label>
+              <textarea
+                className={`${styles.input} ${styles.textarea}${
+                  fieldErrors.details ? ` ${styles.inputInvalid}` : ""
+                }`}
+                value={formData.details}
+                onChange={handleChange("details")}
+                onBlur={handleBlur("details")}
+                rows={5}
+                maxLength={2000}
+                placeholder="Personality, habits, medical notes, why they need a home — write freely."
+              />
+              <p className={styles.uploadHint}>
+                Optional · {String(formData.details || "").length}/2000
+              </p>
+              {fieldErrors.details && (
+                <p className={styles.fieldError}>{fieldErrors.details}</p>
+              )}
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>Extra details</label>
+              <p className={styles.uploadHint}>
+                Optional — check what applies so adopters know more at a glance.
+              </p>
+              <div className={styles.traitGrid}>
+                {PET_TRAIT_OPTIONS.map((trait) => (
+                  <label key={trait.id} className={styles.traitCheck}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formData.traits?.[trait.id])}
+                      onChange={() => toggleTrait(trait.id)}
+                    />
+                    <span>{trait.label}</span>
+                  </label>
+                ))}
               </div>
             </div>
 
@@ -379,7 +835,9 @@ function CreateAdoptionPost() {
               <button
                 type="button"
                 className={styles.cancelBtn}
-                onClick={() => navigate("/")}
+                onClick={() =>
+                  navigate(isEditMode ? `/adopt/${editId}` : "/")
+                }
                 disabled={isSubmitting}
               >
                 Cancel
@@ -387,9 +845,15 @@ function CreateAdoptionPost() {
               <button
                 type="submit"
                 className={styles.submitBtn}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingEdit}
               >
-                {isSubmitting ? "Publishing..." : "Publish post"}
+                {isSubmitting
+                  ? isEditMode
+                    ? "Saving..."
+                    : "Publishing..."
+                  : isEditMode
+                    ? "Save changes"
+                    : "Publish post"}
               </button>
             </div>
           </form>

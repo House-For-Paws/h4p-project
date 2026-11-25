@@ -277,6 +277,111 @@ async function backfillPetImages() {
   }
 }
 
+// ======================== SCHEMA PATCHES ========================
+async function columnExists(tableName, columnName) {
+  const cols = await query(
+    `
+      SELECT COLUMN_NAME AS name
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = ?
+        AND COLUMN_NAME = ?
+    `,
+    [DB_NAME, tableName, columnName],
+  );
+  return cols.length > 0;
+}
+
+/** Columns CREATE IF NOT EXISTS cannot add to existing tables. */
+async function ensureSchemaPatches() {
+  if (!(await columnExists("notifications", "relatedThreadId"))) {
+    await pool.query(`
+      ALTER TABLE notifications
+      ADD COLUMN relatedThreadId INT UNSIGNED NULL AFTER relatedApplicationId,
+      ADD KEY notifications_relatedThreadId_index (relatedThreadId)
+    `);
+    try {
+      await pool.query(`
+        ALTER TABLE notifications
+        ADD CONSTRAINT notifications_relatedThreadId_fk
+        FOREIGN KEY (relatedThreadId) REFERENCES message_threads(id)
+        ON DELETE SET NULL
+      `);
+    } catch {
+      // Constraint may already exist or message_threads missing on odd DBs.
+    }
+  }
+
+  if (!(await columnExists("content_reports", "screenshot"))) {
+    await pool.query(`
+      ALTER TABLE content_reports
+      ADD COLUMN screenshot LONGTEXT NULL AFTER description
+    `);
+  }
+
+  if (!(await columnExists("content_reports", "relatedThreadId"))) {
+    await pool.query(`
+      ALTER TABLE content_reports
+      ADD COLUMN relatedThreadId INT UNSIGNED NULL AFTER screenshot,
+      ADD KEY content_reports_relatedThreadId_index (relatedThreadId)
+    `);
+  }
+
+  try {
+    await pool.query(`
+      ALTER TABLE content_reports
+      ADD CONSTRAINT content_reports_relatedThreadId_fk
+      FOREIGN KEY (relatedThreadId) REFERENCES message_threads(id)
+      ON DELETE SET NULL
+    `);
+  } catch {
+    // Already exists, or message_threads not ready yet.
+  }
+
+  const blockTables = await query(
+    `
+      SELECT TABLE_NAME AS name
+      FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = 'user_blocks'
+    `,
+    [DB_NAME],
+  );
+  if (!(await columnExists("pets", "details"))) {
+    await pool.query(`
+      ALTER TABLE pets
+      ADD COLUMN details TEXT NULL AFTER gender
+    `);
+  }
+
+  if (!(await columnExists("pets", "traits"))) {
+    await pool.query(`
+      ALTER TABLE pets
+      ADD COLUMN traits TEXT NULL AFTER details
+    `);
+  }
+
+  if (!blockTables.length) {
+    await pool.query(`
+      CREATE TABLE user_blocks (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        blockerId INT UNSIGNED NOT NULL,
+        blockedId INT UNSIGNED NOT NULL,
+        reason VARCHAR(120) NULL,
+        description TEXT NULL,
+        relatedReportId INT UNSIGNED NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY user_blocks_pair_unique (blockerId, blockedId),
+        KEY user_blocks_blockerId_index (blockerId),
+        KEY user_blocks_blockedId_index (blockedId),
+        CONSTRAINT user_blocks_blockerId_fk FOREIGN KEY (blockerId) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT user_blocks_blockedId_fk FOREIGN KEY (blockedId) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  }
+}
+
 // ======================== INIT ========================
 /** Create DB → open pool → apply schema.sql → seed. Call before listen(). */
 async function initDb() {
@@ -294,6 +399,7 @@ async function initDb() {
   });
 
   await pool.query(fs.readFileSync(SCHEMA_FILE, "utf8"));
+  await ensureSchemaPatches();
   await seedPets();
   await backfillPetImages();
 }

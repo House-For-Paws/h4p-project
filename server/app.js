@@ -16,7 +16,15 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
+const { assertRuntimeSecrets } = require("./utils/secrets");
 const { initDb } = require("./config/db");
+
+try {
+  assertRuntimeSecrets();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 const authRoutes = require("./routes/authRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const petRoutes = require("./routes/petRoutes");
@@ -26,6 +34,8 @@ const postRoutes = require("./routes/postRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const messageRoutes = require("./routes/messageRoutes");
+const blockRoutes = require("./routes/blockRoutes");
 
 const app = express();
 
@@ -89,6 +99,8 @@ app.get("/", (req, res) => {
       "/api/applications",
       "/api/notifications",
       "/api/reports",
+      "/api/messages",
+      "/api/blocks",
     ],
   });
 });
@@ -102,6 +114,8 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/blocks", blockRoutes);
 app.use("/api/admin", adminRoutes);
 console.log("ADMIN ROUTES REGISTERED");
 

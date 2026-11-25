@@ -182,7 +182,7 @@ function Register() {
       const res = await register({ ...formData });
       localStorage.setItem("token", res.data.token);
       notifyAuthTokenChanged();
-      navigate("/profile");
+      navigate("/", { replace: true });
     } catch (err) {
       setFormError(err.response?.data?.message || "Registration failed");
     } finally {

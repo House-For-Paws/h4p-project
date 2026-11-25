@@ -39,6 +39,23 @@ ADD COLUMN IF NOT EXISTS banDescription TEXT NULL,
 ADD COLUMN IF NOT EXISTS bannedAt DATETIME NULL,
 ADD COLUMN IF NOT EXISTS warningCount INT UNSIGNED NOT NULL DEFAULT 0;
 
+-- ======================== USER BLOCKS ========================
+CREATE TABLE IF NOT EXISTS user_blocks (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  blockerId INT UNSIGNED NOT NULL,
+  blockedId INT UNSIGNED NOT NULL,
+  reason VARCHAR(120) NULL,
+  description TEXT NULL,
+  relatedReportId INT UNSIGNED NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY user_blocks_pair_unique (blockerId, blockedId),
+  KEY user_blocks_blockerId_index (blockerId),
+  KEY user_blocks_blockedId_index (blockedId),
+  CONSTRAINT user_blocks_blockerId_fk FOREIGN KEY (blockerId) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT user_blocks_blockedId_fk FOREIGN KEY (blockedId) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ======================== CONTENT REPORTS ========================
 CREATE TABLE IF NOT EXISTS content_reports (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -47,6 +64,8 @@ CREATE TABLE IF NOT EXISTS content_reports (
   targetId INT UNSIGNED NOT NULL,
   reason VARCHAR(120) NOT NULL,
   description TEXT NULL,
+  screenshot LONGTEXT NULL,
+  relatedThreadId INT UNSIGNED NULL,
   status VARCHAR(40) NOT NULL DEFAULT 'pending',
   reviewedBy INT UNSIGNED NULL,
   reviewedAt DATETIME NULL,
@@ -55,6 +74,7 @@ CREATE TABLE IF NOT EXISTS content_reports (
   KEY content_reports_status_index (status),
   KEY content_reports_target_index (targetType, targetId),
   KEY content_reports_reporterId_index (reporterId),
+  KEY content_reports_relatedThreadId_index (relatedThreadId),
   CONSTRAINT content_reports_reporterId_fk FOREIGN KEY (reporterId) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT content_reports_reviewedBy_fk FOREIGN KEY (reviewedBy) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -89,6 +109,12 @@ MODIFY COLUMN images LONGTEXT NULL;
 
 ALTER TABLE pets
 ADD COLUMN IF NOT EXISTS viewCount INT UNSIGNED NOT NULL DEFAULT 0;
+
+ALTER TABLE pets
+ADD COLUMN IF NOT EXISTS details TEXT NULL;
+
+ALTER TABLE pets
+ADD COLUMN IF NOT EXISTS traits TEXT NULL;
 
 -- ======================== PET LIKES ========================
 CREATE TABLE IF NOT EXISTS pet_likes (
@@ -194,6 +220,39 @@ CREATE TABLE IF NOT EXISTS adoption_applications (
   CONSTRAINT adoption_applications_applicantId_fk FOREIGN KEY (applicantId) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ======================== MESSAGE THREADS (pet-linked chat) ========================
+CREATE TABLE IF NOT EXISTS message_threads (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  petId INT UNSIGNED NOT NULL,
+  ownerId INT UNSIGNED NOT NULL,
+  participantId INT UNSIGNED NOT NULL,
+  lastMessageAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY message_threads_pet_participant_unique (petId, participantId),
+  KEY message_threads_ownerId_index (ownerId),
+  KEY message_threads_participantId_index (participantId),
+  KEY message_threads_lastMessageAt_index (lastMessageAt),
+  CONSTRAINT message_threads_petId_fk FOREIGN KEY (petId) REFERENCES pets(id) ON DELETE CASCADE,
+  CONSTRAINT message_threads_ownerId_fk FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT message_threads_participantId_fk FOREIGN KEY (participantId) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS messages (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  threadId INT UNSIGNED NOT NULL,
+  senderId INT UNSIGNED NOT NULL,
+  body TEXT NOT NULL,
+  isRead TINYINT(1) NOT NULL DEFAULT 0,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY messages_threadId_index (threadId),
+  KEY messages_senderId_index (senderId),
+  KEY messages_isRead_index (isRead),
+  CONSTRAINT messages_threadId_fk FOREIGN KEY (threadId) REFERENCES message_threads(id) ON DELETE CASCADE,
+  CONSTRAINT messages_senderId_fk FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ======================== NOTIFICATIONS ========================
 CREATE TABLE IF NOT EXISTS notifications (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -203,12 +262,15 @@ CREATE TABLE IF NOT EXISTS notifications (
   body TEXT NOT NULL,
   relatedPetId INT UNSIGNED NULL,
   relatedApplicationId INT UNSIGNED NULL,
+  relatedThreadId INT UNSIGNED NULL,
   isRead TINYINT(1) NOT NULL DEFAULT 0,
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY notifications_userId_index (userId),
   KEY notifications_isRead_index (isRead),
+  KEY notifications_relatedThreadId_index (relatedThreadId),
   CONSTRAINT notifications_userId_fk FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT notifications_relatedPetId_fk FOREIGN KEY (relatedPetId) REFERENCES pets(id) ON DELETE SET NULL,
-  CONSTRAINT notifications_relatedApplicationId_fk FOREIGN KEY (relatedApplicationId) REFERENCES adoption_applications(id) ON DELETE SET NULL
+  CONSTRAINT notifications_relatedApplicationId_fk FOREIGN KEY (relatedApplicationId) REFERENCES adoption_applications(id) ON DELETE SET NULL,
+  CONSTRAINT notifications_relatedThreadId_fk FOREIGN KEY (relatedThreadId) REFERENCES message_threads(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

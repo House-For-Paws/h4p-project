@@ -15,14 +15,19 @@ import PetImageCarousel from "../Components/features/PetImageCarousel";
 import {
   addPetComment,
   deletePet,
+  deletePetComment,
   getPet,
+  getPetStats,
   recordPetView,
   togglePetFavorite,
   togglePetLike,
 } from "../services/userService";
 import { createAdoptionApplication } from "../services/applicationService";
+import { getProfile } from "../services/authService";
 import { createReport } from "../services/reportService";
+import { useMessageChat } from "../contexts/MessageChatContext";
 import styles from "../styles/adoptPet.module.css";
+import { PET_TRAIT_OPTIONS } from "../utils/createPetValidation";
 
 const REPORT_REASON_OPTIONS = [
   "Spam",
@@ -52,7 +57,7 @@ function petOwnerLabel(pet) {
   const first = pet?.ownerFirstName || "";
   const last = pet?.ownerLastName || "";
   const full = `${first} ${last}`.trim();
-  return full || pet?.ownerUsername || pet?.ownerEmail || "";
+  return full || pet?.ownerUsername || "";
 }
 
 function getCurrentUserId() {
@@ -69,23 +74,24 @@ function getCurrentUserId() {
 function AdoptPet() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { openChat } = useMessageChat();
 
   const [pet, setPet] = useState(null);
   const currentUserId = getCurrentUserId();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [requestForm, setRequestForm] = useState({
-    fullName: "",
-    email: "",
     phone: "",
     message: "",
   });
+  const [accountLabel, setAccountLabel] = useState("");
   const [requestError, setRequestError] = useState("");
   const [requestSuccess, setRequestSuccess] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentError, setCommentError] = useState("");
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [isCommenting, setIsCommenting] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [isLiking, setIsLiking] = useState(false);
@@ -108,6 +114,7 @@ function AdoptPet() {
 
   const isLiked = Boolean(pet?.likedByMe);
   const isFavorited = Boolean(pet?.favoritedByMe);
+  const hasRequested = Boolean(pet?.requestedByMe);
   const isOwnPet =
     pet?.ownerId != null &&
     currentUserId != null &&
@@ -136,6 +143,12 @@ function AdoptPet() {
         const viewKey = `petViewCounted:${id}`;
         if (!sessionStorage.getItem(viewKey)) {
           sessionStorage.setItem(viewKey, "1");
+          // Bump immediately so the counter feels live.
+          setPet((prev) =>
+            prev
+              ? { ...prev, viewCount: Number(prev.viewCount || 0) + 1 }
+              : prev,
+          );
           try {
             const viewRes = await recordPetView(id);
             if (!active) return;
@@ -151,6 +164,14 @@ function AdoptPet() {
             );
           } catch {
             sessionStorage.removeItem(viewKey);
+            setPet((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    viewCount: Math.max(0, Number(prev.viewCount || 0) - 1),
+                  }
+                : prev,
+            );
           }
         }
       } catch (err) {
@@ -162,10 +183,86 @@ function AdoptPet() {
     };
 
     loadPet();
+
+    const loadAccount = async () => {
+      try {
+        const res = await getProfile();
+        if (!active) return;
+        const user = res.data?.user;
+        if (!user) return;
+        const name =
+          `${user.firstName || user.firstname || ""} ${user.lastName || user.lastname || ""}`.trim() ||
+          user.username ||
+          "your account";
+        const email = String(user.email || "").trim();
+        setAccountLabel(email ? `${name} · ${email}` : name);
+        if (user.phone) {
+          setRequestForm((prev) =>
+            prev.phone ? prev : { ...prev, phone: String(user.phone) },
+          );
+        }
+      } catch {
+        // Form still works — server fills name/email from the session.
+      }
+    };
+    loadAccount();
+
     return () => {
       active = false;
     };
   }, [id, navigate]);
+
+  // Keep views (and other engagement) fresh while the page stays open.
+  useEffect(() => {
+    if (!id || loading || error || !pet?.id) return undefined;
+
+    let active = true;
+    const syncStats = async () => {
+      try {
+        const res = await getPetStats(id);
+        if (!active) return;
+        const nextViews = Number(res.data?.viewCount);
+        const nextLikes = Number(res.data?.likeCount);
+        const nextComments = Number(res.data?.commentCount);
+        setPet((prev) => {
+          if (!prev) return prev;
+          const patch = {};
+          if (Number.isFinite(nextViews) && nextViews !== Number(prev.viewCount || 0)) {
+            patch.viewCount = nextViews;
+          }
+          if (
+            Number.isFinite(nextComments) &&
+            nextComments !== Number(prev.commentCount || 0)
+          ) {
+            patch.commentCount = nextComments;
+          }
+          return Object.keys(patch).length ? { ...prev, ...patch } : prev;
+        });
+        if (Number.isFinite(nextLikes)) {
+          setLikeCount((prev) => (prev === nextLikes ? prev : nextLikes));
+        }
+      } catch {
+        // Ignore transient poll errors.
+      }
+    };
+
+    const intervalId = window.setInterval(syncStats, 3000);
+    const onFocus = () => {
+      syncStats();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncStats();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [id, loading, error, pet?.id]);
 
   // ======================== LIKE ========================
   const toggleLike = async () => {
@@ -256,6 +353,35 @@ function AdoptPet() {
     return full || comment?.username || "User";
   };
 
+  const handleRemoveComment = async (comment) => {
+    if (!pet?.id || !comment?.id || deletingCommentId) return;
+    const ok = window.confirm("Remove this comment?");
+    if (!ok) return;
+    setDeletingCommentId(comment.id);
+    setCommentError("");
+    try {
+      const res = await deletePetComment(pet.id, comment.id);
+      setComments((prev) => prev.filter((item) => item.id !== comment.id));
+      setPet((prev) =>
+        prev
+          ? {
+              ...prev,
+              commentCount: Number(
+                res.data?.commentCount ??
+                  Math.max(0, Number(prev.commentCount || 0) - 1),
+              ),
+            }
+          : prev,
+      );
+    } catch (err) {
+      setCommentError(
+        err.response?.data?.message || "Could not remove comment.",
+      );
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   // ======================== REMOVE LISTING ========================
   const handleRemoveListing = async () => {
     if (!pet?.id) return;
@@ -329,16 +455,10 @@ function AdoptPet() {
 
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
-    const fullName = requestForm.fullName.trim();
-    const email = requestForm.email.trim();
     const message = requestForm.message.trim();
 
-    if (!fullName || !email || !message) {
-      setRequestError("Please fill in your name, email, and a short message.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      setRequestError("Enter a valid email address.");
+    if (!message) {
+      setRequestError("Please write a short message for the owner.");
       return;
     }
 
@@ -349,15 +469,22 @@ function AdoptPet() {
     try {
       await createAdoptionApplication({
         petId: pet.id,
-        fullName,
-        email,
         phone: requestForm.phone.trim(),
         message,
       });
+      setPet((prev) =>
+        prev
+          ? {
+              ...prev,
+              requestedByMe: true,
+              myApplicationStatus: "pending",
+            }
+          : prev,
+      );
       setRequestSuccess(
         `Thanks! Your adoption request for ${pet.name} was sent to the owner.`,
       );
-      setRequestForm({ fullName: "", email: "", phone: "", message: "" });
+      setRequestForm((prev) => ({ ...prev, message: "" }));
     } catch (err) {
       setRequestError(
         err.response?.data?.message || "Could not send adoption request.",
@@ -525,7 +652,18 @@ function AdoptPet() {
                                 </div>
                               </div>
                               <p>{comment.text}</p>
-                              {!isMine ? (
+                              {isMine ? (
+                                <button
+                                  type="button"
+                                  className={styles.removeCommentBtn}
+                                  disabled={deletingCommentId === comment.id}
+                                  onClick={() => handleRemoveComment(comment)}
+                                >
+                                  {deletingCommentId === comment.id
+                                    ? "Removing…"
+                                    : "Remove comment"}
+                                </button>
+                              ) : (
                                 <button
                                   type="button"
                                   className={styles.reportLinkBtn}
@@ -539,7 +677,7 @@ function AdoptPet() {
                                 >
                                   Report comment
                                 </button>
-                              ) : null}
+                              )}
                             </li>
                           );
                         };
@@ -705,39 +843,98 @@ function AdoptPet() {
                   {petOwnerLabel(pet) ? (
                     <div className={styles.metaItem}>
                       <span>Posted by</span>
-                      <strong>{petOwnerLabel(pet)}</strong>
+                      <div className={styles.postedByRow}>
+                        {pet.ownerAvatar ? (
+                          <img
+                            src={pet.ownerAvatar}
+                            alt=""
+                            className={styles.postedByAvatar}
+                          />
+                        ) : (
+                          <div className={styles.postedByAvatarFallback}>
+                            {petOwnerLabel(pet).charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <strong>{petOwnerLabel(pet)}</strong>
+                      </div>
                     </div>
                   ) : null}
                 </div>
 
                 <div className={styles.aboutBlock}>
                   <h2>About {pet.name}</h2>
-                  <p>
-                    {pet.name} is a {pet.age.toLowerCase()} {pet.breed} looking
-                    for a loving home in {pet.location}.
-                    {!isOwnPet &&
-                      " If this feels like the right match, send an adoption request below and we'll help connect you."}
-                  </p>
+                  {String(pet.details || "").trim() ? (
+                    <p className={styles.aboutDetails}>
+                      {String(pet.details).trim()}
+                    </p>
+                  ) : (
+                    <p>
+                      {pet.name} is a {String(pet.age || "").toLowerCase()}{" "}
+                      {pet.breed} looking for a loving home in {pet.location}.
+                      {!isOwnPet &&
+                        " If this feels like the right match, send an adoption request below and we'll help connect you."}
+                    </p>
+                  )}
+                  {PET_TRAIT_OPTIONS.some((trait) => pet.traits?.[trait.id]) ? (
+                    <ul className={styles.traitList}>
+                      {PET_TRAIT_OPTIONS.filter(
+                        (trait) => pet.traits?.[trait.id],
+                      ).map((trait) => (
+                        <li key={trait.id}>{trait.label}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
 
                 {isOwnPet && (
                   <div className={styles.ownerActions}>
                     <p className={styles.ownerActionsHint}>
-                      This is your listing. You can remove it anytime.
+                      This is your listing. You can edit details or remove it
+                      anytime.
                     </p>
                     {removeError ? (
                       <p className={styles.requestError}>{removeError}</p>
                     ) : null}
+                    <div className={styles.ownerActionRow}>
+                      <button
+                        type="button"
+                        className={styles.editListingBtn}
+                        onClick={() => navigate(`/edit-post/${pet.id}`)}
+                      >
+                        Edit listing
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.removeListingBtn}
+                        onClick={() => {
+                          setRemoveError("");
+                          setShowRemoveConfirm(true);
+                        }}
+                      >
+                        Remove listing
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!isOwnPet && pet?.ownerId != null && (
+                  <div className={styles.messageOwnerWrap}>
                     <button
                       type="button"
-                      className={styles.removeListingBtn}
+                      className={styles.messageOwnerBtn}
                       onClick={() => {
-                        setRemoveError("");
-                        setShowRemoveConfirm(true);
+                        if (!localStorage.getItem("token")) {
+                          navigate("/login");
+                          return;
+                        }
+                        openChat({ petId: pet.id });
                       }}
                     >
-                      Remove listing
+                      Message owner
                     </button>
+                    <p className={styles.messageOwnerHint}>
+                      Ask a question about {pet.name} before you apply.
+                    </p>
                   </div>
                 )}
 
@@ -759,26 +956,30 @@ function AdoptPet() {
                   </div>
                 )}
 
-                {!isOwnPet && (
+                {!isOwnPet && hasRequested ? (
+                  <div className={styles.requestedBox}>
+                    <span className={styles.requestedTag}>Requested</span>
+                    <p className={styles.requestedCopy}>
+                      You already sent an adoption request for {pet.name}. The
+                      owner will review it and update you.
+                    </p>
+                    {requestSuccess ? (
+                      <p className={styles.requestSuccess}>{requestSuccess}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {!isOwnPet && !hasRequested ? (
                   <form
                     className={styles.requestForm}
                     onSubmit={handleRequestSubmit}
                   >
                     <h2>Request to adopt</h2>
-                    <div className={styles.formGrid}>
-                      <input
-                        type="text"
-                        placeholder="Full name *"
-                        value={requestForm.fullName}
-                        onChange={handleRequestChange("fullName")}
-                      />
-                      <input
-                        type="email"
-                        placeholder="Email *"
-                        value={requestForm.email}
-                        onChange={handleRequestChange("email")}
-                      />
-                    </div>
+                    {accountLabel ? (
+                      <p className={styles.requestAccountNote}>
+                        Sending as <strong>{accountLabel}</strong>
+                      </p>
+                    ) : null}
                     <input
                       type="tel"
                       placeholder="Phone (optional)"
@@ -807,7 +1008,7 @@ function AdoptPet() {
                       {isSending ? "Sending..." : `Adopt ${pet.name}`}
                     </button>
                   </form>
-                )}
+                ) : null}
               </section>
             </div>
           )}

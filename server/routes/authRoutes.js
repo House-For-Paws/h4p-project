@@ -24,12 +24,24 @@ const {
   deleteAccount,
 } = require("../controllers/authController");
 const authMiddleware = require("../middleware/authMiddleware");
+const { createRateLimiter } = require("../middleware/rateLimit");
+
+const authLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: "Too many auth attempts. Try again in a few minutes.",
+});
+const promoteLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: "Too many promote attempts. Try again later.",
+});
 
 // ----- Public -----
-router.post("/register", register);
-router.post("/login", login);
-router.post("/forgot-password", forgotPassword);
-router.post("/promote", promote);
+router.post("/register", authLimiter, register);
+router.post("/login", authLimiter, login);
+router.post("/forgot-password", authLimiter, forgotPassword);
+router.post("/promote", promoteLimiter, promote);
 
 // ----- Authenticated -----
 router.get("/profile", authMiddleware, profile);

@@ -20,6 +20,7 @@ import {
 import { getAvailablePetsCount } from "../services/statsService";
 import { notifyAuthTokenChanged } from "../utils/authEvents";
 import PetImageCarousel from "../Components/features/PetImageCarousel";
+import { PET_TRAIT_OPTIONS } from "../utils/createPetValidation";
 
 const filters = [
   { id: "all", label: "All Pets", icon: "all" },
@@ -33,6 +34,17 @@ const sortOptions = [
   { id: "comments", label: "Most comments" },
   { id: "views", label: "Most viewed" },
 ];
+
+function getCurrentUserId() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload?.id != null ? Number(payload.id) : null;
+  } catch {
+    return null;
+  }
+}
 
 function Home() {
   const [activeFilter, setActiveFilter] = useState(
@@ -59,6 +71,7 @@ function Home() {
   );
 
   const navigate = useNavigate();
+  const currentUserId = getCurrentUserId();
   const hasActiveSearch = searchQuery.trim().length > 0;
   const hasActiveTypeFilter = activeFilter !== "all";
   const hasActiveSort = Boolean(sortBy);
@@ -82,6 +95,7 @@ function Home() {
 
       try {
         const res = await getPets({
+          status: "available",
           type: activeFilter,
           search: searchQuery,
           ...(sortBy ? { sort: sortBy } : {}),
@@ -680,6 +694,7 @@ function Home() {
                           : [pet.image].filter(Boolean)
                       }
                       alt={pet.name}
+                      fit="cover"
                     />
 
                     <div className={styles.cardActions}>
@@ -784,6 +799,9 @@ function Home() {
                       </span>
                         );
                       })()}
+                      {pet.requestedByMe ? (
+                        <span className={styles.requestedBadge}>Requested</span>
+                      ) : null}
                     </div>
 
                     <div className={styles.details}>
@@ -817,6 +835,25 @@ function Home() {
                       </span>
                     </div>
 
+                    {(() => {
+                      const activeTraits = PET_TRAIT_OPTIONS.filter(
+                        (trait) => pet.traits?.[trait.id],
+                      );
+                      if (!activeTraits.length) return null;
+                      const visible = activeTraits.slice(0, 3);
+                      const extra = activeTraits.length - visible.length;
+                      return (
+                        <ul className={styles.traitTags}>
+                          {visible.map((trait) => (
+                            <li key={trait.id}>{trait.label}</li>
+                          ))}
+                          {extra > 0 ? (
+                            <li className={styles.traitMore}>+{extra} more</li>
+                          ) : null}
+                        </ul>
+                      );
+                    })()}
+
                     <div className={styles.engagementRow}>
                       <span title="Likes" className={styles.engagementStat}>
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
@@ -843,7 +880,12 @@ function Home() {
                       className={styles.adoptBtn}
                       onClick={() => handleAdoptClick(pet)}
                     >
-                      Adopt {pet.name}
+                      {currentUserId != null &&
+                      Number(pet.ownerId) === currentUserId
+                        ? "View listing"
+                        : pet.requestedByMe
+                          ? "View request"
+                          : `Adopt ${pet.name}`}
                     </button>
                     {!isAuthenticated && (
                       <p className={styles.adoptGuardrail}>

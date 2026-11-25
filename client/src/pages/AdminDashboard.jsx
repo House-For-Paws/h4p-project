@@ -17,11 +17,11 @@ import {
   FileText,
   Flag,
   Heart,
+  Image as ImageIcon,
   LayoutDashboard,
   MessageSquare,
   MoreHorizontal,
   PawPrint,
-  Plus,
   Settings,
   Trash2,
   Users,
@@ -34,6 +34,8 @@ import {
   deleteAdminPet,
   getAdminApplications,
   getAdminComments,
+  deleteAdminReport,
+  getAdminReportMessages,
   getAdminReports,
   getAdminStats,
   getAdminUsers,
@@ -80,6 +82,90 @@ const WARNING_REASON_OPTIONS = [
   "Community guidelines",
   "Other",
 ];
+
+const REPORT_REASON_FILTER_OPTIONS = [
+  "Spam",
+  "Inappropriate content",
+  "Harassment",
+  "Misleading information",
+  "Scam / fraud",
+  "Harassment / bullying",
+  "Spam / scam",
+  "Inappropriate messages",
+  "Threats / abuse",
+  "Broken page / crash",
+  "Something looks wrong",
+  "Feature not working",
+  "Performance issue",
+  "Other",
+];
+
+const DATE_PRESET_OPTIONS = [
+  { id: "all", label: "All time" },
+  { id: "today", label: "Today" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "custom", label: "Custom range" },
+];
+
+/** Build inclusive start/end for a date preset. */
+function getPresetRange(preset) {
+  const now = new Date();
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999,
+  );
+  if (preset === "today") {
+    return {
+      from: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      to: end,
+    };
+  }
+  if (preset === "7d") {
+    const from = new Date(end);
+    from.setDate(from.getDate() - 6);
+    from.setHours(0, 0, 0, 0);
+    return { from, to: end };
+  }
+  if (preset === "30d") {
+    const from = new Date(end);
+    from.setDate(from.getDate() - 29);
+    from.setHours(0, 0, 0, 0);
+    return { from, to: end };
+  }
+  return { from: null, to: null };
+}
+
+/** True when dateValue falls in the selected preset / custom range. */
+function matchesDateFilter(dateValue, preset, customFrom, customTo) {
+  if (!preset || preset === "all") return true;
+  const date = dateValue ? new Date(dateValue) : null;
+  if (!date || Number.isNaN(date.getTime())) return false;
+
+  let from = null;
+  let to = null;
+  if (preset === "custom") {
+    if (customFrom) {
+      from = new Date(customFrom);
+      from.setHours(0, 0, 0, 0);
+    }
+    if (customTo) {
+      to = new Date(customTo);
+      to.setHours(23, 59, 59, 999);
+    }
+  } else {
+    ({ from, to } = getPresetRange(preset));
+  }
+
+  if (from && date < from) return false;
+  if (to && date > to) return false;
+  return true;
+}
 
 function formatAppStatus(status) {
   const value = String(status || "").toLowerCase();
@@ -138,7 +224,7 @@ function ownerDisplayName(item) {
   const first = item?.ownerFirstName || "";
   const last = item?.ownerLastName || "";
   const full = `${first} ${last}`.trim();
-  return full || item?.ownerUsername || item?.ownerEmail || "Unknown";
+  return full || item?.ownerUsername || "Unknown";
 }
 
 function DonutChart({ segments, total, centerLabel }) {
@@ -278,6 +364,10 @@ const AdminDashboard = () => {
   const [allComments, setAllComments] = useState([]);
   const [allApplications, setAllApplications] = useState([]);
   const [allReports, setAllReports] = useState([]);
+  const [reportScreenshot, setReportScreenshot] = useState(null);
+  const [reportChat, setReportChat] = useState(null);
+  const [reportChatLoading, setReportChatLoading] = useState(false);
+  const [reportChatError, setReportChatError] = useState("");
   const [adminUser, setAdminUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -294,6 +384,25 @@ const AdminDashboard = () => {
   const [warnReason, setWarnReason] = useState(WARNING_REASON_OPTIONS[0]);
   const [warnMessage, setWarnMessage] = useState("");
   const [warnError, setWarnError] = useState("");
+
+  // ----- Section filters -----
+  const [animalTypeFilter, setAnimalTypeFilter] = useState("all");
+  const [animalStatusFilter, setAnimalStatusFilter] = useState("all");
+  const [appDatePreset, setAppDatePreset] = useState("all");
+  const [appDateFrom, setAppDateFrom] = useState("");
+  const [appDateTo, setAppDateTo] = useState("");
+  const [commentSearch, setCommentSearch] = useState("");
+  const [commentDatePreset, setCommentDatePreset] = useState("all");
+  const [commentDateFrom, setCommentDateFrom] = useState("");
+  const [commentDateTo, setCommentDateTo] = useState("");
+  const [reportTypeFilter, setReportTypeFilter] = useState("all");
+  const [reportReasonFilter, setReportReasonFilter] = useState("all");
+  const [reportDatePreset, setReportDatePreset] = useState("all");
+  const [reportDateFrom, setReportDateFrom] = useState("");
+  const [reportDateTo, setReportDateTo] = useState("");
+  const [userDatePreset, setUserDatePreset] = useState("all");
+  const [userDateFrom, setUserDateFrom] = useState("");
+  const [userDateTo, setUserDateTo] = useState("");
 
   const closeMoreMenu = () => {
     setOpenMenuId(null);
@@ -402,6 +511,130 @@ const AdminDashboard = () => {
   }, [warnModal, updatingId]);
 
   const pets = stats?.allPets || [];
+
+  const animalTypeOptions = useMemo(() => {
+    const types = new Set();
+    pets.forEach((pet) => {
+      const type = String(pet.type || "").trim().toLowerCase();
+      if (type) types.add(type);
+    });
+    ["dog", "cat"].forEach((type) => types.add(type));
+    return ["all", ...Array.from(types).sort()];
+  }, [pets]);
+
+  const reportReasonOptions = useMemo(() => {
+    const reasons = new Set(REPORT_REASON_FILTER_OPTIONS);
+    allReports.forEach((report) => {
+      const reason = String(report.reason || "").trim();
+      if (reason) reasons.add(reason);
+    });
+    return ["all", ...Array.from(reasons)];
+  }, [allReports]);
+
+  const filteredPets = useMemo(() => {
+    return pets.filter((pet) => {
+      const typeOk =
+        animalTypeFilter === "all" ||
+        String(pet.type || "").trim().toLowerCase() === animalTypeFilter;
+      const statusOk =
+        animalStatusFilter === "all" ||
+        String(pet.status || "").trim().toLowerCase() === animalStatusFilter;
+      return typeOk && statusOk;
+    });
+  }, [pets, animalTypeFilter, animalStatusFilter]);
+
+  const filteredApplications = useMemo(
+    () =>
+      allApplications.filter((app) =>
+        matchesDateFilter(
+          app.createdAt,
+          appDatePreset,
+          appDateFrom,
+          appDateTo,
+        ),
+      ),
+    [allApplications, appDatePreset, appDateFrom, appDateTo],
+  );
+
+  const filteredComments = useMemo(() => {
+    const query = commentSearch.trim().toLowerCase();
+    return allComments.filter((comment) => {
+      if (
+        !matchesDateFilter(
+          comment.createdAt,
+          commentDatePreset,
+          commentDateFrom,
+          commentDateTo,
+        )
+      ) {
+        return false;
+      }
+      if (!query) return true;
+      const author = displayName(comment).toLowerCase();
+      const username = String(comment.username || "").toLowerCase();
+      const email = String(comment.email || "").toLowerCase();
+      const petName = String(comment.petName || "").toLowerCase();
+      const text = String(comment.text || "").toLowerCase();
+      return (
+        author.includes(query) ||
+        username.includes(query) ||
+        email.includes(query) ||
+        petName.includes(query) ||
+        text.includes(query)
+      );
+    });
+  }, [
+    allComments,
+    commentSearch,
+    commentDatePreset,
+    commentDateFrom,
+    commentDateTo,
+  ]);
+
+  const filteredReports = useMemo(
+    () =>
+      allReports.filter((report) => {
+        const type = String(report.targetType || "").toLowerCase();
+        if (reportTypeFilter !== "all") {
+          const wanted =
+            reportTypeFilter === "listing" ? "pet" : reportTypeFilter;
+          if (type !== wanted) return false;
+        }
+        if (
+          reportReasonFilter !== "all" &&
+          String(report.reason || "").trim() !== reportReasonFilter
+        ) {
+          return false;
+        }
+        return matchesDateFilter(
+          report.createdAt,
+          reportDatePreset,
+          reportDateFrom,
+          reportDateTo,
+        );
+      }),
+    [
+      allReports,
+      reportTypeFilter,
+      reportReasonFilter,
+      reportDatePreset,
+      reportDateFrom,
+      reportDateTo,
+    ],
+  );
+
+  const filteredUsers = useMemo(
+    () =>
+      allUsers.filter((user) =>
+        matchesDateFilter(
+          user.createdAt,
+          userDatePreset,
+          userDateFrom,
+          userDateTo,
+        ),
+      ),
+    [allUsers, userDatePreset, userDateFrom, userDateTo],
+  );
 
   const dateRangeLabel = useMemo(() => {
     const now = new Date();
@@ -557,6 +790,25 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleRemoveAnimal = async (pet) => {
+    if (!pet?.id) return;
+    const ok = window.confirm(
+      `Permanently remove "${pet.name || "this pet"}" and related applications?`,
+    );
+    if (!ok) return;
+    setUpdatingId(`pet-${pet.id}`);
+    try {
+      await deleteAdminPet(pet.id);
+      await refreshAfterMutation("Pet listing removed.");
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not remove pet listing.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   // ======================== COMMENTS ========================
   const handleRemoveComment = async (comment) => {
     const author = displayName(comment);
@@ -679,6 +931,48 @@ const AdminDashboard = () => {
     } catch (err) {
       setActionMessage(
         err.response?.data?.message || "Could not update report.",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleOpenReportChat = async (report) => {
+    closeMoreMenu();
+    setReportChat(null);
+    setReportChatError("");
+    setReportChatLoading(true);
+    try {
+      const res = await getAdminReportMessages(report.id);
+      setReportChat(res.data || null);
+    } catch (err) {
+      setReportChatError(
+        err.response?.data?.message || "Could not load chat history.",
+      );
+      setReportChat({ errorOnly: true });
+    } finally {
+      setReportChatLoading(false);
+    }
+  };
+
+  const handleDeleteReport = async (report) => {
+    closeMoreMenu();
+    const ok = window.confirm(
+      "Permanently delete this report? This cannot be undone.",
+    );
+    if (!ok) return;
+
+    setUpdatingId(`report-${report.id}`);
+    try {
+      await deleteAdminReport(report.id);
+      setAllReports((prev) => prev.filter((item) => item.id !== report.id));
+      if (reportChat && !reportChat.errorOnly && reportChat.report?.id === report.id) {
+        setReportChat(null);
+      }
+      setActionMessage("Report deleted.");
+    } catch (err) {
+      setActionMessage(
+        err.response?.data?.message || "Could not delete report.",
       );
     } finally {
       setUpdatingId(null);
@@ -874,11 +1168,11 @@ const AdminDashboard = () => {
 
   const renderApplicationsTable = (
     rows,
-    { showActions = true, limit } = {},
+    { showActions = true, limit, emptyText = "No applications yet." } = {},
   ) => {
     const list = typeof limit === "number" ? rows.slice(0, limit) : rows;
     if (!list.length) {
-      return <p className={styles.empty}>No applications yet.</p>;
+      return <p className={styles.empty}>{emptyText}</p>;
     }
 
     return (
@@ -1334,14 +1628,6 @@ const AdminDashboard = () => {
                     <div className={styles.quickActions}>
                       <button
                         type="button"
-                        className={`${styles.quickBtn} ${styles.quickBtnPrimary}`}
-                        onClick={() => navigate("/create-post")}
-                      >
-                        <Plus size={16} />
-                        Add New Animal
-                      </button>
-                      <button
-                        type="button"
                         className={styles.quickBtn}
                         onClick={() => setSection("users")}
                       >
@@ -1381,47 +1667,89 @@ const AdminDashboard = () => {
             {section === "animals" && (
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
-                  <h2>All Animals ({pets.length})</h2>
-                  <button
-                    type="button"
-                    className={styles.primaryBtn}
-                    onClick={() => navigate("/create-post")}
-                  >
-                    <Plus size={16} />
-                    Add New Animal
-                  </button>
+                  <h2>
+                    All Animals ({filteredPets.length}
+                    {filteredPets.length !== pets.length
+                      ? ` of ${pets.length}`
+                      : ""}
+                    )
+                  </h2>
+                </div>
+                <div className={styles.filterBar}>
+                  <label className={styles.filterField}>
+                    <span>Type</span>
+                    <select
+                      value={animalTypeFilter}
+                      onChange={(e) => setAnimalTypeFilter(e.target.value)}
+                    >
+                      {animalTypeOptions.map((type) => (
+                        <option key={type} value={type}>
+                          {type === "all" ? "All types" : capitalizeFirst(type)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={styles.filterField}>
+                    <span>Status</span>
+                    <select
+                      value={animalStatusFilter}
+                      onChange={(e) => setAnimalStatusFilter(e.target.value)}
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="available">Available</option>
+                      <option value="adopted">Adopted</option>
+                    </select>
+                  </label>
                 </div>
                 {!pets.length ? (
                   <p className={styles.empty}>No animals listed yet.</p>
+                ) : !filteredPets.length ? (
+                  <p className={styles.empty}>
+                    No animals match these filters.
+                  </p>
                 ) : (
                   <div className={styles.cardsGrid}>
-                    {pets.map((pet) => (
-                      <button
-                        key={pet.id}
-                        type="button"
-                        className={styles.entityCard}
-                        onClick={() => navigate(`/adopt/${pet.id}`)}
-                      >
-                        {petThumb(pet) ? (
-                          <img src={petThumb(pet)} alt={pet.name} />
-                        ) : (
-                          <div className={styles.entityPlaceholder}>
-                            <PawPrint size={28} />
+                    {filteredPets.map((pet) => (
+                      <div key={pet.id} className={styles.entityCard}>
+                        <button
+                          type="button"
+                          className={styles.entityCardMain}
+                          onClick={() => navigate(`/adopt/${pet.id}`)}
+                        >
+                          {petThumb(pet) ? (
+                            <img src={petThumb(pet)} alt={pet.name} />
+                          ) : (
+                            <div className={styles.entityPlaceholder}>
+                              <PawPrint size={28} />
+                            </div>
+                          )}
+                          <div>
+                            <strong>{pet.name}</strong>
+                            <span>
+                              {pet.breed} · {capitalizeFirst(pet.type)}
+                            </span>
+                            <span>Posted by {ownerDisplayName(pet)}</span>
+                            <em
+                              className={`${styles.badge} ${statusBadgeClass(pet.status)}`}
+                            >
+                              {pet.status}
+                            </em>
                           </div>
-                        )}
-                        <div>
-                          <strong>{pet.name}</strong>
-                          <span>
-                            {pet.breed} · {capitalizeFirst(pet.type)}
-                          </span>
-                          <span>Posted by {ownerDisplayName(pet)}</span>
-                          <em
-                            className={`${styles.badge} ${statusBadgeClass(pet.status)}`}
+                        </button>
+                        <div className={styles.entityCardActions}>
+                          <button
+                            type="button"
+                            className={styles.dangerBtn}
+                            disabled={updatingId === `pet-${pet.id}`}
+                            onClick={() => handleRemoveAnimal(pet)}
                           >
-                            {pet.status}
-                          </em>
+                            <Trash2 size={14} />
+                            {updatingId === `pet-${pet.id}`
+                              ? "Removing…"
+                              : "Remove"}
+                          </button>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -1431,10 +1759,54 @@ const AdminDashboard = () => {
             {section === "applications" && (
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
-                  <h2>Applications ({allApplications.length})</h2>
+                  <h2>
+                    Applications ({filteredApplications.length}
+                    {filteredApplications.length !== allApplications.length
+                      ? ` of ${allApplications.length}`
+                      : ""}
+                    )
+                  </h2>
                 </div>
-                {renderApplicationsTable(allApplications, {
+                <div className={styles.filterBar}>
+                  <label className={styles.filterField}>
+                    <span>Date</span>
+                    <select
+                      value={appDatePreset}
+                      onChange={(e) => setAppDatePreset(e.target.value)}
+                    >
+                      {DATE_PRESET_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {appDatePreset === "custom" ? (
+                    <>
+                      <label className={styles.filterField}>
+                        <span>From</span>
+                        <input
+                          type="date"
+                          value={appDateFrom}
+                          onChange={(e) => setAppDateFrom(e.target.value)}
+                        />
+                      </label>
+                      <label className={styles.filterField}>
+                        <span>To</span>
+                        <input
+                          type="date"
+                          value={appDateTo}
+                          onChange={(e) => setAppDateTo(e.target.value)}
+                        />
+                      </label>
+                    </>
+                  ) : null}
+                </div>
+                {renderApplicationsTable(filteredApplications, {
                   showActions: true,
+                  emptyText: allApplications.length
+                    ? "No applications match this date filter."
+                    : "No applications yet.",
                 })}
               </section>
             )}
@@ -1442,10 +1814,62 @@ const AdminDashboard = () => {
             {section === "comments" && (
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
-                  <h2>Comments ({allComments.length})</h2>
+                  <h2>
+                    Comments ({filteredComments.length}
+                    {filteredComments.length !== allComments.length
+                      ? ` of ${allComments.length}`
+                      : ""}
+                    )
+                  </h2>
+                </div>
+                <div className={styles.filterBar}>
+                  <label className={`${styles.filterField} ${styles.filterGrow}`}>
+                    <span>Search</span>
+                    <input
+                      type="search"
+                      placeholder="Author, listing, or comment text"
+                      value={commentSearch}
+                      onChange={(e) => setCommentSearch(e.target.value)}
+                    />
+                  </label>
+                  <label className={styles.filterField}>
+                    <span>Date</span>
+                    <select
+                      value={commentDatePreset}
+                      onChange={(e) => setCommentDatePreset(e.target.value)}
+                    >
+                      {DATE_PRESET_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {commentDatePreset === "custom" ? (
+                    <>
+                      <label className={styles.filterField}>
+                        <span>From</span>
+                        <input
+                          type="date"
+                          value={commentDateFrom}
+                          onChange={(e) => setCommentDateFrom(e.target.value)}
+                        />
+                      </label>
+                      <label className={styles.filterField}>
+                        <span>To</span>
+                        <input
+                          type="date"
+                          value={commentDateTo}
+                          onChange={(e) => setCommentDateTo(e.target.value)}
+                        />
+                      </label>
+                    </>
+                  ) : null}
                 </div>
                 {!allComments.length ? (
                   <p className={styles.empty}>No comments on listings yet.</p>
+                ) : !filteredComments.length ? (
+                  <p className={styles.empty}>No comments match these filters.</p>
                 ) : (
                   <div className={styles.tableScroll}>
                     <table className={styles.dataTable}>
@@ -1459,7 +1883,7 @@ const AdminDashboard = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {allComments.map((comment) => {
+                        {filteredComments.map((comment) => {
                           const thumb = petThumb({
                             image: comment.petImage,
                             images: comment.petImages,
@@ -1574,10 +1998,79 @@ const AdminDashboard = () => {
             {section === "reports" && (
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
-                  <h2>Reports ({allReports.length})</h2>
+                  <h2>
+                    Reports ({filteredReports.length}
+                    {filteredReports.length !== allReports.length
+                      ? ` of ${allReports.length}`
+                      : ""}
+                    )
+                  </h2>
+                </div>
+                <div className={styles.filterBar}>
+                  <label className={styles.filterField}>
+                    <span>Type</span>
+                    <select
+                      value={reportTypeFilter}
+                      onChange={(e) => setReportTypeFilter(e.target.value)}
+                    >
+                      <option value="all">All types</option>
+                      <option value="listing">Listing</option>
+                      <option value="comment">Comment</option>
+                      <option value="user">Messaging user</option>
+                      <option value="bug">Bug</option>
+                    </select>
+                  </label>
+                  <label className={styles.filterField}>
+                    <span>Reason</span>
+                    <select
+                      value={reportReasonFilter}
+                      onChange={(e) => setReportReasonFilter(e.target.value)}
+                    >
+                      {reportReasonOptions.map((reason) => (
+                        <option key={reason} value={reason}>
+                          {reason === "all" ? "All reasons" : reason}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={styles.filterField}>
+                    <span>Date</span>
+                    <select
+                      value={reportDatePreset}
+                      onChange={(e) => setReportDatePreset(e.target.value)}
+                    >
+                      {DATE_PRESET_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {reportDatePreset === "custom" ? (
+                    <>
+                      <label className={styles.filterField}>
+                        <span>From</span>
+                        <input
+                          type="date"
+                          value={reportDateFrom}
+                          onChange={(e) => setReportDateFrom(e.target.value)}
+                        />
+                      </label>
+                      <label className={styles.filterField}>
+                        <span>To</span>
+                        <input
+                          type="date"
+                          value={reportDateTo}
+                          onChange={(e) => setReportDateTo(e.target.value)}
+                        />
+                      </label>
+                    </>
+                  ) : null}
                 </div>
                 {!allReports.length ? (
                   <p className={styles.empty}>No reports yet.</p>
+                ) : !filteredReports.length ? (
+                  <p className={styles.empty}>No reports match these filters.</p>
                 ) : (
                   <div className={styles.tableScroll}>
                     <table className={styles.dataTable}>
@@ -1592,22 +2085,35 @@ const AdminDashboard = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {allReports.map((report) => {
+                        {filteredReports.map((report) => {
                           const busy = updatingId === `report-${report.id}`;
                           const menuId = `report-${report.id}`;
                           const status = String(
                             report.status || "pending",
                           ).toLowerCase();
-                          const isComment =
-                            String(report.targetType || "").toLowerCase() ===
-                            "comment";
+                          const reportType = String(
+                            report.targetType || "",
+                          ).toLowerCase();
+                          const isComment = reportType === "comment";
+                          const isBug = reportType === "bug";
+                          const isUserReport = reportType === "user";
                           const preview =
-                            report.targetPreview || `#${report.targetId}`;
-                          const subtitle = report.description
-                            ? report.description
-                            : isComment
-                              ? "Reported comment"
-                              : "Reported listing";
+                            report.targetPreview ||
+                            (isBug
+                              ? "Site bug"
+                              : isUserReport
+                                ? `User #${report.targetId}`
+                                : `#${report.targetId}`);
+                          const subtitle = isBug
+                            ? report.reason || "Bug report"
+                            : isUserReport
+                              ? report.description ||
+                                "Reported for bad messaging"
+                              : report.description
+                                ? report.description
+                                : isComment
+                                  ? "Reported comment"
+                                  : "Reported listing";
                           const reportedUser = allUsers.find(
                             (u) =>
                               Number(u.id) === Number(report.targetOwnerId),
@@ -1618,7 +2124,13 @@ const AdminDashboard = () => {
                                 <span
                                   className={`${styles.badge} ${styles.badgeGray}`}
                                 >
-                                  {isComment ? "Comment" : "Listing"}
+                                  {isBug
+                                    ? "Bug"
+                                    : isUserReport
+                                      ? "User"
+                                      : isComment
+                                        ? "Comment"
+                                        : "Listing"}
                                 </span>
                               </td>
                               <td>
@@ -1683,6 +2195,30 @@ const AdminDashboard = () => {
                                       <Eye size={16} />
                                     </button>
                                   ) : null}
+                                  {report.screenshot ? (
+                                    <button
+                                      type="button"
+                                      className={styles.iconBtn}
+                                      title="View screenshot"
+                                      onClick={() =>
+                                        setReportScreenshot(report.screenshot)
+                                      }
+                                    >
+                                      <ImageIcon size={16} />
+                                    </button>
+                                  ) : null}
+                                  {isUserReport ? (
+                                    <button
+                                      type="button"
+                                      className={styles.iconBtn}
+                                      title="View chat history"
+                                      onClick={() =>
+                                        handleOpenReportChat(report)
+                                      }
+                                    >
+                                      <MessageSquare size={16} />
+                                    </button>
+                                  ) : null}
                                   <div className={styles.moreWrap}>
                                     <button
                                       type="button"
@@ -1709,6 +2245,31 @@ const AdminDashboard = () => {
                                           }}
                                           onClick={(e) => e.stopPropagation()}
                                         >
+                                          {isUserReport ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              onClick={() =>
+                                                handleOpenReportChat(report)
+                                              }
+                                            >
+                                              View chat history
+                                            </button>
+                                          ) : null}
+                                          {report.screenshot ? (
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              onClick={() => {
+                                                closeMoreMenu();
+                                                setReportScreenshot(
+                                                  report.screenshot,
+                                                );
+                                              }}
+                                            >
+                                              View screenshot
+                                            </button>
+                                          ) : null}
                                           {report.relatedPetId ? (
                                             <button
                                               type="button"
@@ -1766,6 +2327,16 @@ const AdminDashboard = () => {
                                               Reopen as pending
                                             </button>
                                           ) : null}
+                                          <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={styles.moreMenuDanger}
+                                            onClick={() =>
+                                              handleDeleteReport(report)
+                                            }
+                                          >
+                                            Delete report
+                                          </button>
                                           {reportedUser &&
                                           !reportedUser.isBanned ? (
                                             <button
@@ -1817,10 +2388,53 @@ const AdminDashboard = () => {
             {section === "users" && (
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
-                  <h2>Users ({allUsers.length})</h2>
+                  <h2>
+                    Users ({filteredUsers.length}
+                    {filteredUsers.length !== allUsers.length
+                      ? ` of ${allUsers.length}`
+                      : ""}
+                    )
+                  </h2>
+                </div>
+                <div className={styles.filterBar}>
+                  <label className={styles.filterField}>
+                    <span>Joined</span>
+                    <select
+                      value={userDatePreset}
+                      onChange={(e) => setUserDatePreset(e.target.value)}
+                    >
+                      {DATE_PRESET_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {userDatePreset === "custom" ? (
+                    <>
+                      <label className={styles.filterField}>
+                        <span>From</span>
+                        <input
+                          type="date"
+                          value={userDateFrom}
+                          onChange={(e) => setUserDateFrom(e.target.value)}
+                        />
+                      </label>
+                      <label className={styles.filterField}>
+                        <span>To</span>
+                        <input
+                          type="date"
+                          value={userDateTo}
+                          onChange={(e) => setUserDateTo(e.target.value)}
+                        />
+                      </label>
+                    </>
+                  ) : null}
                 </div>
                 {!allUsers.length ? (
                   <p className={styles.empty}>No users found.</p>
+                ) : !filteredUsers.length ? (
+                  <p className={styles.empty}>No users match this date filter.</p>
                 ) : (
                   <div className={styles.tableScroll}>
                     <table className={styles.dataTable}>
@@ -1835,7 +2449,7 @@ const AdminDashboard = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {allUsers.map((user) => {
+                        {filteredUsers.map((user) => {
                           const isAdminUser =
                             String(user.role || "").toLowerCase() === "admin";
                           const isSelf =
@@ -1973,6 +2587,141 @@ const AdminDashboard = () => {
         </main>
       </div>
       <Footer />
+
+      {reportScreenshot &&
+        createPortal(
+          <div
+            className={styles.messageOverlay}
+            onClick={() => setReportScreenshot(null)}
+            role="presentation"
+          >
+            <div
+              className={styles.screenshotModal}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Bug screenshot"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className={styles.messageClose}
+                onClick={() => setReportScreenshot(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <p className={styles.messageEyebrow}>Bug report</p>
+              <h2 className={styles.messageTitle}>Screenshot</h2>
+              <img
+                src={reportScreenshot}
+                alt="Reported bug screenshot"
+                className={styles.screenshotImage}
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {(reportChat || reportChatLoading) &&
+        createPortal(
+          <div
+            className={styles.messageOverlay}
+            onClick={() => {
+              if (!reportChatLoading) {
+                setReportChat(null);
+                setReportChatError("");
+              }
+            }}
+            role="presentation"
+          >
+            <div
+              className={styles.chatHistoryModal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="report-chat-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className={styles.messageClose}
+                onClick={() => {
+                  setReportChat(null);
+                  setReportChatError("");
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <p className={styles.messageEyebrow}>Messaging report</p>
+              <h2 id="report-chat-title" className={styles.messageTitle}>
+                Chat history
+              </h2>
+              {reportChatLoading ? (
+                <p className={styles.chatHistoryHint}>Loading conversation…</p>
+              ) : reportChatError ? (
+                <p className={styles.chatHistoryError}>{reportChatError}</p>
+              ) : (
+                <>
+                  <p className={styles.chatHistoryMeta}>
+                    <strong>
+                      {reportChat?.thread?.petName || "Pet listing"}
+                    </strong>
+                    {" · "}
+                    {reportChat?.report?.reason || "Report"}
+                    {reportChat?.report?.description
+                      ? ` — ${reportChat.report.description}`
+                      : ""}
+                  </p>
+                  <div className={styles.chatHistoryScroll}>
+                    {!reportChat?.messages?.length ? (
+                      <p className={styles.chatHistoryHint}>
+                        No messages in this conversation.
+                      </p>
+                    ) : (
+                      reportChat.messages.map((msg) => {
+                        const reportedId = Number(
+                          reportChat?.report?.reportedUserId,
+                        );
+                        const isReported =
+                          Number(msg.senderId) === reportedId;
+                        const sender =
+                          `${msg.senderFirstName || ""} ${msg.senderLastName || ""}`.trim() ||
+                          msg.senderUsername ||
+                          `User #${msg.senderId}`;
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`${styles.chatHistoryBubble} ${
+                              isReported
+                                ? styles.chatHistoryBubbleReported
+                                : styles.chatHistoryBubbleOther
+                            }`}
+                          >
+                            <div className={styles.chatHistoryBubbleTop}>
+                              <strong>{sender}</strong>
+                              {isReported ? (
+                                <span className={styles.chatHistoryTag}>
+                                  Reported user
+                                </span>
+                              ) : null}
+                              <span>
+                                {msg.createdAt
+                                  ? new Date(msg.createdAt).toLocaleString()
+                                  : ""}
+                              </span>
+                            </div>
+                            <p>{msg.body}</p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {messageModal &&
         createPortal(

@@ -17,7 +17,9 @@ const {
   setUserBanned,
   warnUser,
   getAllReports,
+  getReportMessages,
   updateReportStatus,
+  deleteReport,
   getPendingReportsCount,
   getAllPosts,
   getAllComments,
@@ -55,7 +57,9 @@ router.post("/users/:id/warn", ...adminOnly, warnUser);
 // ======================== REPORTS ========================
 router.get("/reports/pending-count", ...adminOnly, getPendingReportsCount);
 router.get("/reports", ...adminOnly, getAllReports);
+router.get("/reports/:id/messages", ...adminOnly, getReportMessages);
 router.patch("/reports/:id", ...adminOnly, updateReportStatus);
+router.delete("/reports/:id", ...adminOnly, deleteReport);
 
 // ======================== CONTENT ========================
 router.get("/posts", ...adminOnly, getAllPosts);

@@ -14,7 +14,9 @@ export const getUsers = () => API.get("/users");
 export const getPets = (params = {}) => API.get("/pets", { params });
 export const getPet = (id) => API.get(`/pets/${id}`);
 export const recordPetView = (id) => API.post(`/pets/${id}/view`);
+export const getPetStats = (id) => API.get(`/pets/${id}/stats`);
 export const createPet = (pet) => API.post("/pets", pet);
+export const updatePet = (id, pet) => API.patch(`/pets/${id}`, pet);
 export const deletePet = (id) => API.delete(`/pets/${id}`);
 
 // ----- Likes / favorites / comments -----
@@ -24,3 +26,5 @@ export const getMyFavoritePets = () => API.get("/pets/favorites/mine");
 export const getPetComments = (id) => API.get(`/pets/${id}/comments`);
 export const addPetComment = (id, text) =>
   API.post(`/pets/${id}/comments`, { text });
+export const deletePetComment = (petId, commentId) =>
+  API.delete(`/pets/${petId}/comments/${commentId}`);

@@ -8,8 +8,18 @@
  * =============================================================================
  */
 const jwt = require("jsonwebtoken");
+const { isWeakSecret } = require("./secrets");
 
-const getJwtSecret = () => process.env.JWT_SECRET || "dev-secret-change-me";
+const getJwtSecret = () => {
+  const secret = String(process.env.JWT_SECRET || "").trim();
+  if (!secret || isWeakSecret(secret)) {
+    throw new Error(
+      "JWT_SECRET is missing or too weak. Set a strong value in server/.env",
+    );
+  }
+  return secret;
+};
+
 const normalizeRole = (role) => String(role || "").trim().toLowerCase();
 
 const generateToken = (user) =>

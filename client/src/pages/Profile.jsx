@@ -31,12 +31,17 @@ import {
 import {
   getNotifications,
   getUnreadNotificationCount,
+  clearNotifications,
+  deleteNotification,
   markAllNotificationsRead,
   markNotificationRead,
 } from "../services/notificationService";
+import { getMyBlocks, unblockUser } from "../services/blockService";
+import { Trash2 } from "lucide-react";
 import FavoritedPets from "../Components/profile/FavoritedPets";
 import NotificationTypeIcon from "../Components/features/NotificationTypeIcon";
 import { notifyAuthTokenChanged } from "../utils/authEvents";
+import { useMessageChat } from "../contexts/MessageChatContext";
 
 const getFriendlyRole = (role) => {
   const normalizedRole = String(role || "").toLowerCase();
@@ -95,6 +100,9 @@ const Profile = () => {
     notifyNewPets: true,
     notifyApplicationUpdates: true,
   });
+  const [blockedUsers, setBlockedUsers] = useState([]);
+  const [blocksLoading, setBlocksLoading] = useState(false);
+  const [blocksError, setBlocksError] = useState("");
   const [deleteForm, setDeleteForm] = useState({
     currentPassword: "",
     confirmationText: "",
@@ -109,6 +117,7 @@ const Profile = () => {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { openChat } = useMessageChat();
 
   /** Load user profile + owned pets in parallel for initial render. */
   // ======================== LOAD DATA ========================
@@ -117,7 +126,10 @@ const Profile = () => {
     setError("");
 
     try {
-      const [profileRes, petsRes] = await Promise.all([getProfile(), getPets()]);
+      const [profileRes, petsRes] = await Promise.all([
+        getProfile(),
+        getPets({ status: "all" }),
+      ]);
       const profileUser = profileRes.data.user;
 
       setUser(profileUser);
@@ -195,7 +207,7 @@ const Profile = () => {
     const first = req?.ownerFirstName || "";
     const last = req?.ownerLastName || "";
     const full = `${first} ${last}`.trim();
-    return full || req?.ownerUsername || req?.ownerEmail || "";
+    return full || req?.ownerUsername || "";
   };
 
   useEffect(() => {
@@ -228,18 +240,30 @@ const Profile = () => {
     if (activeTab === "requests") {
       loadMyRequests();
     }
+    if (activeTab === "settings") {
+      loadBlocks();
+    }
   }, [activeTab]);
 
   // ======================== NOTIFICATIONS ========================
   const handleMarkNotificationRead = async (id) => {
     try {
       await markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((item) =>
+      setNotifications((prev) => {
+        const target = prev.find((item) => item.id === id);
+        const next = prev.map((item) =>
           item.id === id ? { ...item, isRead: 1 } : item,
-        ),
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+        );
+        // Bell unread excludes pet_message (handled by the Messages badge).
+        if (
+          target &&
+          !Number(target.isRead) &&
+          target.type !== "pet_message"
+        ) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return next;
+      });
     } catch {
       /* keep list as-is if mark-read fails */
     }
@@ -254,6 +278,71 @@ const Profile = () => {
       setUnreadCount(0);
     } catch {
       /* ignore */
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!notifications.length) return;
+    const ok = window.confirm(
+      "Permanently delete all notifications? This cannot be undone.",
+    );
+    if (!ok) return;
+    try {
+      await clearNotifications();
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (err) {
+      setInboxError(
+        err.response?.data?.message || "Could not clear notifications.",
+      );
+    }
+  };
+
+  const handleDeleteOneNotification = async (id) => {
+    try {
+      await deleteNotification(id);
+      setNotifications((prev) => {
+        const target = prev.find((item) => item.id === id);
+        const next = prev.filter((item) => item.id !== id);
+        if (
+          target &&
+          !Number(target.isRead) &&
+          target.type !== "pet_message"
+        ) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return next;
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const loadBlocks = async () => {
+    setBlocksLoading(true);
+    setBlocksError("");
+    try {
+      const res = await getMyBlocks();
+      setBlockedUsers(res.data || []);
+    } catch (err) {
+      setBlocksError(
+        err.response?.data?.message || "Could not load blocked users.",
+      );
+    } finally {
+      setBlocksLoading(false);
+    }
+  };
+
+  const handleUnblockUser = async (userId) => {
+    try {
+      await unblockUser(userId);
+      setBlockedUsers((prev) =>
+        prev.filter((item) => Number(item.blockedId) !== Number(userId)),
+      );
+    } catch (err) {
+      setBlocksError(
+        err.response?.data?.message || "Could not unblock user.",
+      );
     }
   };
 
@@ -286,6 +375,7 @@ const Profile = () => {
           petId: req.petId,
           petName: req.petName || "this pet",
           applicantName: req.fullName || "the applicant",
+          source: "approval",
         });
       }
     } catch (err) {
@@ -298,6 +388,15 @@ const Profile = () => {
   };
 
   // ======================== REMOVE LISTING ========================
+  const openRemoveListingPrompt = (pet) => {
+    if (!pet?.id) return;
+    setRemoveListingPrompt({
+      petId: pet.id,
+      petName: pet.name || "this pet",
+      source: "my-pets",
+    });
+  };
+
   const handleConfirmRemoveListing = async () => {
     if (!removeListingPrompt?.petId) return;
     setIsRemovingListing(true);
@@ -464,8 +563,20 @@ const Profile = () => {
       return;
     }
 
+    if (passwordForm.newPassword.length < 6) {
+      setSettingsError("New password must be at least 6 characters.");
+      setSettingsSuccess("");
+      return;
+    }
+
     if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
       setSettingsError("New passwords do not match.");
+      setSettingsSuccess("");
+      return;
+    }
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      setSettingsError("New password must be different from the current one.");
       setSettingsSuccess("");
       return;
     }
@@ -475,7 +586,7 @@ const Profile = () => {
     setSettingsSuccess("");
 
     try {
-      await changePassword({
+      const res = await changePassword({
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
         confirmNewPassword: passwordForm.confirmNewPassword,
@@ -485,7 +596,9 @@ const Profile = () => {
         newPassword: "",
         confirmNewPassword: "",
       });
-      setSettingsSuccess("Password updated successfully.");
+      setSettingsSuccess(
+        res.data?.message || "Password updated successfully.",
+      );
     } catch (err) {
       setSettingsError(
         err.response?.data?.message || "Could not update password.",
@@ -528,17 +641,33 @@ const Profile = () => {
       return;
     }
 
+    if (String(deleteForm.confirmationText).trim().toUpperCase() !== "DELETE") {
+      setSettingsError('Type DELETE (all caps) to confirm account removal.');
+      setSettingsSuccess("");
+      return;
+    }
+
+    const ok = window.confirm(
+      "Delete your account permanently? This cannot be undone.",
+    );
+    if (!ok) return;
+
     setIsDeletingAccount(true);
     setSettingsError("");
     setSettingsSuccess("");
 
     try {
-      await deleteAccount(deleteForm);
+      await deleteAccount({
+        currentPassword: deleteForm.currentPassword,
+        confirmationText: String(deleteForm.confirmationText).trim(),
+      });
       localStorage.removeItem("token");
       notifyAuthTokenChanged();
-      navigate("/register");
+      navigate("/login", { replace: true });
     } catch (err) {
-      setSettingsError(err.response?.data?.message || "Could not delete account.");
+      setSettingsError(
+        err.response?.data?.message || "Could not delete account.",
+      );
     } finally {
       setIsDeletingAccount(false);
     }
@@ -693,6 +822,13 @@ const Profile = () => {
                     My Requests
                     {myRequests.length > 0 ? ` (${myRequests.length})` : ""}
                   </span>
+                </button>
+                <button
+                  className={styles.navItem}
+                  type="button"
+                  onClick={() => openChat()}
+                >
+                  <span>Messages</span>
                 </button>
                 <button
                   className={`${styles.navItem} ${activeTab === "notifications" ? styles.navItemActive : ""}`}
@@ -895,6 +1031,9 @@ const Profile = () => {
               {activeTab === "pets" && (
                 <div className={styles.profileCard}>
                   <h2 className={styles.sectionTitle}>My Pets</h2>
+                  {requestActionMessage ? (
+                    <p className={styles.inboxHint}>{requestActionMessage}</p>
+                  ) : null}
                   {myPets.length === 0 ? (
                     <div className={styles.emptyState}>
                       <p>You haven't listed any pets for adoption yet.</p>
@@ -908,31 +1047,57 @@ const Profile = () => {
                   ) : (
                     <div className={styles.petsGrid}>
                       {myPets.map((pet) => (
-                        <button
-                          key={pet.id}
-                          type="button"
-                          className={styles.petCard}
-                          onClick={() => navigate(`/adopt/${pet.id}`)}
-                        >
-                          <img
-                            src={
-                              (Array.isArray(pet.images) && pet.images[0]) ||
-                              pet.image
-                            }
-                            alt={pet.name}
-                            className={styles.petImage}
-                          />
-                          <div className={styles.petMeta}>
-                            <h3>{pet.name}</h3>
-                            <p>{pet.breed}</p>
-                            <span className={styles.petStatus}>
-                              {String(pet.status || "").toLowerCase() ===
-                                "adopted" || pet.adopted
-                                ? "Adopted"
-                                : "Available"}
-                            </span>
-                          </div>
-                        </button>
+                        <div key={pet.id} className={styles.petCard}>
+                          <button
+                            type="button"
+                            className={styles.petCardMain}
+                            onClick={() => navigate(`/adopt/${pet.id}`)}
+                          >
+                            <img
+                              src={
+                                (Array.isArray(pet.images) && pet.images[0]) ||
+                                pet.image
+                              }
+                              alt={pet.name}
+                              className={styles.petImage}
+                            />
+                            <div className={styles.petMeta}>
+                              <h3>{pet.name}</h3>
+                              <p>{pet.breed}</p>
+                              <span className={styles.petStatus}>
+                                {String(pet.status || "").toLowerCase() ===
+                                  "adopted" || pet.adopted
+                                  ? "Adopted"
+                                  : "Available"}
+                              </span>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.petEditBtn}
+                            title="Edit listing"
+                            aria-label={`Edit listing for ${pet.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/edit-post/${pet.id}`);
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.petRemoveBtn}
+                            title="Remove listing"
+                            aria-label={`Remove listing for ${pet.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openRemoveListingPrompt(pet);
+                            }}
+                          >
+                            <Trash2 size={16} />
+                            <span>Remove</span>
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1021,15 +1186,26 @@ const Profile = () => {
                 <div className={styles.contentCard}>
                   <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>Notifications</h2>
-                    {unreadCount > 0 && (
-                      <button
-                        type="button"
-                        className={styles.markAllReadBtn}
-                        onClick={handleMarkAllRead}
-                      >
-                        Mark all as read
-                      </button>
-                    )}
+                    <div className={styles.sectionHeaderActions}>
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          className={styles.markAllReadBtn}
+                          onClick={handleMarkAllRead}
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          type="button"
+                          className={styles.markAllReadBtn}
+                          onClick={handleClearNotifications}
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {inboxLoading && (
@@ -1163,7 +1339,10 @@ const Profile = () => {
                             const unread = !Number(item.isRead);
                             const type = String(item.type || "").toLowerCase();
                             const isWarning = type === "admin_warning";
-                            const isReport = type === "content_report";
+                            const isReport =
+                              type === "content_report" ||
+                              type === "chat_report" ||
+                              type === "bug_report";
                             const toneClass =
                               type === "pet_comment"
                                 ? styles.inboxItemComment
@@ -1197,7 +1376,39 @@ const Profile = () => {
                                 </div>
                                 <p className={styles.inboxBody}>{item.body}</p>
                                 <div className={styles.inboxActions}>
-                                  {item.relatedPetId ? (
+                                  {type === "pet_message" ? (
+                                    <button
+                                      type="button"
+                                      className={styles.inboxLinkBtn}
+                                      onClick={() =>
+                                        openChat({
+                                          threadId:
+                                            item.relatedThreadId || null,
+                                          petId: item.relatedThreadId
+                                            ? null
+                                            : item.relatedPetId || null,
+                                        })
+                                      }
+                                    >
+                                      Open conversation
+                                    </button>
+                                  ) : type === "chat_report" ||
+                                    type === "bug_report" ||
+                                    type === "content_report" ? (
+                                    <button
+                                      type="button"
+                                      className={styles.inboxLinkBtn}
+                                      onClick={() =>
+                                        navigate("/admin?section=reports")
+                                      }
+                                    >
+                                      {type === "chat_report"
+                                        ? "Open chat reports"
+                                        : type === "bug_report"
+                                          ? "Open bug reports"
+                                          : "Open reports"}
+                                    </button>
+                                  ) : item.relatedPetId ? (
                                     <button
                                       type="button"
                                       className={styles.inboxLinkBtn}
@@ -1228,6 +1439,15 @@ const Profile = () => {
                                       Mark as read
                                     </button>
                                   )}
+                                  <button
+                                    type="button"
+                                    className={styles.inboxLinkBtn}
+                                    onClick={() =>
+                                      handleDeleteOneNotification(item.id)
+                                    }
+                                  >
+                                    Delete
+                                  </button>
                                 </div>
                               </li>
                             );
@@ -1242,6 +1462,20 @@ const Profile = () => {
               {activeTab === "settings" && (
                 <div className={styles.contentCard}>
                   <h2 className={styles.sectionTitle}>Settings</h2>
+                  {(settingsError || settingsSuccess) && (
+                    <div className={styles.settingsFeedback}>
+                      {settingsError ? (
+                        <span className={styles.formMessageError}>
+                          {settingsError}
+                        </span>
+                      ) : null}
+                      {settingsSuccess ? (
+                        <span className={styles.formMessageSuccess}>
+                          {settingsSuccess}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
                   <div className={styles.settingsGrid}>
                     <div className={styles.settingGroup}>
                       <h3>Change Email</h3>
@@ -1265,10 +1499,12 @@ const Profile = () => {
                           value={emailForm.currentPassword}
                           onChange={handleEmailInput("currentPassword")}
                           placeholder="Confirm with your password"
+                          autoComplete="current-password"
                         />
                       </div>
                       <div className={styles.settingsActions}>
                         <button
+                          type="button"
                           className={styles.saveButton}
                           onClick={handleChangeEmail}
                           disabled={isUpdatingEmail}
@@ -1280,6 +1516,10 @@ const Profile = () => {
 
                     <div className={styles.settingGroup}>
                       <h3>Change Password</h3>
+                      <p className={styles.settingsHint}>
+                        Use at least 6 characters. You stay signed in after a
+                        successful change.
+                      </p>
                       <div className={styles.settingItem}>
                         <label>Current password</label>
                         <input
@@ -1287,6 +1527,7 @@ const Profile = () => {
                           value={passwordForm.currentPassword}
                           onChange={handlePasswordInput("currentPassword")}
                           placeholder="Enter current password"
+                          autoComplete="current-password"
                         />
                       </div>
                       <div className={styles.settingItem}>
@@ -1296,6 +1537,7 @@ const Profile = () => {
                           value={passwordForm.newPassword}
                           onChange={handlePasswordInput("newPassword")}
                           placeholder="Enter new password"
+                          autoComplete="new-password"
                         />
                       </div>
                       <div className={styles.settingItem}>
@@ -1305,10 +1547,12 @@ const Profile = () => {
                           value={passwordForm.confirmNewPassword}
                           onChange={handlePasswordInput("confirmNewPassword")}
                           placeholder="Confirm new password"
+                          autoComplete="new-password"
                         />
                       </div>
                       <div className={styles.settingsActions}>
                         <button
+                          type="button"
                           className={styles.saveButton}
                           onClick={handleChangePassword}
                           disabled={isUpdatingPassword}
@@ -1340,6 +1584,7 @@ const Profile = () => {
                       </label>
                       <div className={styles.settingsActions}>
                         <button
+                          type="button"
                           className={styles.saveButton}
                           onClick={handleSaveNotifications}
                           disabled={isUpdatingNotifications}
@@ -1349,6 +1594,53 @@ const Profile = () => {
                             : "Save Notification Settings"}
                         </button>
                       </div>
+                    </div>
+
+                    <div className={styles.settingGroup}>
+                      <h3>Blocked users</h3>
+                      <p className={styles.dangerText}>
+                        Blocked people cannot message you about listings. Unblock
+                        anytime.
+                      </p>
+                      {blocksLoading ? (
+                        <p className={styles.inboxHint}>Loading…</p>
+                      ) : null}
+                      {blocksError ? (
+                        <p className={styles.requestError}>{blocksError}</p>
+                      ) : null}
+                      {!blocksLoading && !blockedUsers.length ? (
+                        <p className={styles.inboxHint}>No blocked users.</p>
+                      ) : (
+                        <ul className={styles.inboxList}>
+                          {blockedUsers.map((item) => {
+                            const label =
+                              `${item.firstName || ""} ${item.lastName || ""}`.trim() ||
+                              item.username ||
+                              `User #${item.blockedId}`;
+                            return (
+                              <li key={item.id} className={styles.inboxItem}>
+                                <div className={styles.inboxItemHeader}>
+                                  <strong>{label}</strong>
+                                  <span className={styles.inboxMeta}>
+                                    {item.reason || "Blocked"}
+                                  </span>
+                                </div>
+                                <div className={styles.inboxActions}>
+                                  <button
+                                    type="button"
+                                    className={styles.inboxLinkBtn}
+                                    onClick={() =>
+                                      handleUnblockUser(item.blockedId)
+                                    }
+                                  >
+                                    Unblock
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </div>
 
                     <div className={styles.settingGroup}>
@@ -1377,6 +1669,7 @@ const Profile = () => {
                       </div>
                       <div className={styles.settingsActions}>
                         <button
+                          type="button"
                           className={styles.dangerButton}
                           onClick={handleDeleteAccount}
                           disabled={isDeletingAccount}
@@ -1397,7 +1690,11 @@ const Profile = () => {
                         {settingsSuccess}
                       </span>
                     )}
-                    <button className={styles.cancelButton} onClick={handleLogout}>
+                    <button
+                      type="button"
+                      className={styles.cancelButton}
+                      onClick={handleLogout}
+                    >
                       Log out
                     </button>
                   </div>
@@ -1425,15 +1722,29 @@ const Profile = () => {
               aria-labelledby="remove-listing-title"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className={styles.confirmEyebrow}>Adoption approved</p>
+              <p className={styles.confirmEyebrow}>
+                {removeListingPrompt.source === "approval"
+                  ? "Adoption approved"
+                  : "My Pets"}
+              </p>
               <h2 id="remove-listing-title" className={styles.confirmTitle}>
                 Remove this listing?
               </h2>
               <p className={styles.confirmBody}>
-                You approved{" "}
-                <strong>{removeListingPrompt.applicantName}</strong> to adopt{" "}
-                <strong>{removeListingPrompt.petName}</strong>. Would you like
-                to remove the adoption post now?
+                {removeListingPrompt.source === "approval" ? (
+                  <>
+                    You approved{" "}
+                    <strong>{removeListingPrompt.applicantName}</strong> to
+                    adopt <strong>{removeListingPrompt.petName}</strong>. Would
+                    you like to remove the adoption post now?
+                  </>
+                ) : (
+                  <>
+                    Remove the adoption post for{" "}
+                    <strong>{removeListingPrompt.petName}</strong>? This cannot
+                    be undone.
+                  </>
+                )}
               </p>
               <div className={styles.confirmActions}>
                 <button

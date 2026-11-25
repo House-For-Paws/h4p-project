@@ -220,75 +220,55 @@ exports.login = async (req, res, next) => {
 };
 
 /**
- * POST /forgot-password — demo reset flow by email (no OTP yet).
- * Validates email and new password, updates stored hash for matching user.
+ * POST /forgot-password — disabled (was email-only reset = account takeover).
+ * Users change password from Profile → Settings while logged in.
  */
 // ======================== FORGOT PASSWORD ========================
-exports.forgotPassword = async (req, res, next) => {
-  const { email, newPassword, confirmNewPassword } = req.body;
-  const cleanEmail = normalizeEmail(email);
-  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-  if (!cleanEmail || !newPassword || !confirmNewPassword) {
-    return res
-      .status(400)
-      .json({ message: "Email, new password, and confirmation are required" });
-  }
-
-  if (!EMAIL_REGEX.test(cleanEmail)) {
-    return res.status(400).json({ message: "Enter a valid email address" });
-  }
-
-  if (newPassword.length < 6) {
-    return res
-      .status(400)
-      .json({ message: "New password must be at least 6 characters" });
-  }
-
-  if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-    return res.status(400).json({
-      message: "Password must include at least one letter and one number",
-    });
-  }
-
-  if (String(newPassword) !== String(confirmNewPassword)) {
-    return res.status(400).json({ message: "New passwords do not match" });
-  }
-
-  try {
-    const users = await query("SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1", [
-      cleanEmail,
-    ]);
-    const user = users[0];
-
-    if (!user) {
-      return res.status(404).json({ message: "No account found for this email" });
-    }
-
-    await run("UPDATE users SET password = ? WHERE id = ?", [
-      hashPassword(newPassword),
-      user.id,
-    ]);
-
-    res.json({ message: "Password reset successful. You can now log in." });
-  } catch (error) {
-    next(error);
-  }
+exports.forgotPassword = async (req, res) => {
+  return res.status(403).json({
+    message:
+      "Email-only password reset is disabled for security. Log in and change your password in Profile → Settings, or contact support.",
+  });
 };
 
 /**
  * POST /promote — bootstraps admin role given ADMIN_SECRET env + target email (no user JWT).
+ * Disabled in production unless ENABLE_ADMIN_PROMOTE=true.
  */
 // ======================== PROMOTE (ADMIN SECRET) ========================
 exports.promote = async (req, res, next) => {
+  const crypto = require("crypto");
+  const { getAdminSecret } = require("../utils/secrets");
   const { email, secret } = req.body;
   const cleanEmail = normalizeEmail(email);
+  const adminSecret = getAdminSecret();
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    String(process.env.ENABLE_ADMIN_PROMOTE || "").toLowerCase() !== "true"
+  ) {
+    return res.status(403).json({
+      message:
+        "Admin promote is disabled in production. Set ENABLE_ADMIN_PROMOTE=true to enable temporarily.",
+    });
+  }
+
+  if (!adminSecret) {
+    return res.status(503).json({
+      message: "Admin promotion is disabled until ADMIN_SECRET is configured",
+    });
+  }
 
   if (!cleanEmail || !secret) {
     return res.status(400).json({ message: "Email and secret are required" });
   }
 
-  if (secret !== (process.env.ADMIN_SECRET || "h4p-admin-secret")) {
+  const provided = Buffer.from(String(secret));
+  const expected = Buffer.from(String(adminSecret));
+  const secretsMatch =
+    provided.length === expected.length &&
+    crypto.timingSafeEqual(provided, expected);
+  if (!secretsMatch) {
     return res.status(403).json({ message: "Invalid secret" });
   }
 
@@ -409,7 +389,8 @@ exports.changeEmail = async (req, res, next) => {
     }
 
     if (!verifyPassword(currentPassword, user.password)) {
-      return res.status(401).json({ message: "Current password is incorrect" });
+      // 400 (not 401) so the client JWT interceptor does not log the user out
+      return res.status(400).json({ message: "Current password is incorrect" });
     }
 
     const existingUsers = await query(
@@ -475,7 +456,14 @@ exports.changePassword = async (req, res, next) => {
     }
 
     if (!verifyPassword(currentPassword, user.password)) {
-      return res.status(401).json({ message: "Current password is incorrect" });
+      // 400 (not 401) so the client JWT interceptor does not log the user out
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    if (verifyPassword(newPassword, user.password)) {
+      return res.status(400).json({
+        message: "New password must be different from the current password",
+      });
     }
 
     await run("UPDATE users SET password = ? WHERE id = ?", [
@@ -501,8 +489,10 @@ exports.updateProfilePicture = async (req, res, next) => {
     return res.status(400).json({ message: "Image data is required" });
   }
 
-  if (!cleanImageData.startsWith("data:image/")) {
-    return res.status(400).json({ message: "Invalid image format" });
+  if (!/^data:image\/(jpeg|jpg|png|webp|gif);base64,/i.test(cleanImageData)) {
+    return res.status(400).json({
+      message: "Invalid image format (use JPEG, PNG, WebP, or GIF)",
+    });
   }
 
   if (cleanImageData.length > 2_000_000) {
@@ -598,7 +588,8 @@ exports.deleteAccount = async (req, res, next) => {
     }
 
     if (!verifyPassword(currentPassword, user.password)) {
-      return res.status(401).json({ message: "Current password is incorrect" });
+      // 400 (not 401) so the client JWT interceptor does not log the user out
+      return res.status(400).json({ message: "Current password is incorrect" });
     }
 
     await run("DELETE FROM users WHERE id = ?", [req.user.id]);

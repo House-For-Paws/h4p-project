@@ -23,6 +23,7 @@ exports.getNotifications = async (req, res, next) => {
           n.body,
           n.relatedPetId,
           n.relatedApplicationId,
+          n.relatedThreadId,
           n.isRead,
           n.createdAt
         FROM notifications n
@@ -42,8 +43,15 @@ exports.getNotifications = async (req, res, next) => {
 /** GET /api/notifications/unread-count */
 exports.getUnreadCount = async (req, res, next) => {
   try {
+    // Exclude pet_message — unread chats use the Messages badge instead.
     const rows = await query(
-      "SELECT COUNT(*) AS count FROM notifications WHERE userId = ? AND isRead = 0",
+      `
+        SELECT COUNT(*) AS count
+        FROM notifications
+        WHERE userId = ?
+          AND isRead = 0
+          AND type <> 'pet_message'
+      `,
       [req.user.id],
     );
     res.json({ count: Number(rows[0]?.count || 0) });
@@ -78,6 +86,41 @@ exports.markAllNotificationsRead = async (req, res, next) => {
       [req.user.id],
     );
     res.json({ message: "All notifications marked as read" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** DELETE /api/notifications — permanently clear the user's inbox. */
+exports.clearNotifications = async (req, res, next) => {
+  try {
+    const result = await run("DELETE FROM notifications WHERE userId = ?", [
+      req.user.id,
+    ]);
+    res.json({
+      message: "Notifications cleared",
+      deleted: Number(result.affectedRows || 0),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** DELETE /api/notifications/:id — delete one notification. */
+exports.deleteNotification = async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ message: "Invalid notification id" });
+    }
+    const result = await run(
+      "DELETE FROM notifications WHERE id = ? AND userId = ?",
+      [id, req.user.id],
+    );
+    if (!result.affectedRows) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+    res.json({ message: "Notification deleted", id });
   } catch (error) {
     next(error);
   }

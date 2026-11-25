@@ -29,22 +29,31 @@ function hashPassword(password) {
 function verifyPassword(password, storedPassword) {
   const parts = String(storedPassword || "").split(":");
 
+  // Reject legacy/plaintext rows — all passwords must be PBKDF2.
   if (parts.length !== 3) {
-    return password === storedPassword;
+    return false;
   }
 
-  const [iterations, salt, originalHash] = parts;
+  const [iterationsRaw, salt, originalHash] = parts;
+  const iterations = Number(iterationsRaw);
+  if (!iterations || !salt || !originalHash) {
+    return false;
+  }
+
   const hash = crypto
     .pbkdf2Sync(
       password,
       salt,
-      Number(iterations),
+      iterations,
       HASH_KEY_LENGTH,
       HASH_ALGORITHM,
     )
     .toString("hex");
 
-  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(originalHash));
+  const a = Buffer.from(hash);
+  const b = Buffer.from(originalHash);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 module.exports = {

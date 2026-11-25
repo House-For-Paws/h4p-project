@@ -7,13 +7,19 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "../../styles/petImageCarousel.module.css";
 
-function PetImageCarousel({ images = [], alt = "Pet", className = "" }) {
+function PetImageCarousel({
+  images = [],
+  alt = "Pet",
+  className = "",
+  fit = "cover",
+}) {
   const slides = useMemo(
     () => (Array.isArray(images) ? images : []).filter(Boolean),
     [images],
   );
   const [index, setIndex] = useState(0);
   const slideKey = `${slides.length}:${slides[0]?.slice?.(0, 48) || ""}:${slides[slides.length - 1]?.slice?.(-24) || ""}`;
+  const fitClass = fit === "contain" ? styles.fitContain : styles.fitCover;
 
   useEffect(() => {
     setIndex(0);
@@ -45,7 +51,7 @@ function PetImageCarousel({ images = [], alt = "Pet", className = "" }) {
         key={`${safeIndex}-${slides[safeIndex]?.slice?.(0, 32) || "img"}`}
         src={slides[safeIndex]}
         alt={`${alt} photo ${safeIndex + 1}`}
-        className={styles.image}
+        className={`${styles.image} ${fitClass}`}
         loading="lazy"
       />
 

@@ -56,7 +56,28 @@ export function getNotificationVisual(type) {
     return {
       Icon: Flag,
       tone: "report",
-      label: "Report",
+      label: "Listing report",
+    };
+  }
+  if (value === "chat_report") {
+    return {
+      Icon: MessageCircle,
+      tone: "report",
+      label: "Chat report",
+    };
+  }
+  if (value === "bug_report") {
+    return {
+      Icon: Flag,
+      tone: "report",
+      label: "Bug report",
+    };
+  }
+  if (value === "pet_message") {
+    return {
+      Icon: MessageCircle,
+      tone: "comment",
+      label: "Message",
     };
   }
   return {

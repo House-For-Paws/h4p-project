@@ -309,6 +309,56 @@
   margin: 0;
 }
 
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #f0e0cf;
+  border-radius: 12px;
+  background: #fffaf4;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 140px;
+}
+
+.filterGrow {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.filterField span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #9a7d5d;
+}
+
+.filterField select,
+.filterField input {
+  border: 1px solid #ead9c6;
+  border-radius: 10px;
+  background: #fff;
+  color: #2d1b0e;
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.65rem;
+}
+
+.filterField select:focus,
+.filterField input:focus {
+  outline: none;
+  border-color: #ff9f1a;
+  box-shadow: 0 0 0 3px rgba(255, 159, 26, 0.14);
+}
+
 .lineChart {
   width: 100%;
   height: 210px;
@@ -710,6 +760,120 @@
   backdrop-filter: blur(4px);
 }
 
+.screenshotModal {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: min(90vh, 860px);
+  overflow: auto;
+  background: linear-gradient(180deg, #fffdf9 0%, #fff8f0 100%);
+  border: 1px solid rgba(230, 81, 0, 0.18);
+  border-radius: 20px;
+  padding: 1.4rem 1.25rem 1.2rem;
+  box-shadow: 0 24px 60px rgba(41, 28, 18, 0.22);
+}
+
+.screenshotImage {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 640px);
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid rgba(230, 81, 0, 0.16);
+  background: #fff;
+  margin-top: 0.75rem;
+}
+
+.chatHistoryModal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #fffdf9 0%, #fff8f0 100%);
+  border: 1px solid rgba(230, 81, 0, 0.18);
+  border-radius: 20px;
+  padding: 1.35rem 1.2rem 1.1rem;
+  box-shadow: 0 24px 60px rgba(41, 28, 18, 0.22);
+}
+
+.chatHistoryMeta {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.86rem;
+  color: #6d5b4a;
+  line-height: 1.4;
+}
+
+.chatHistoryHint,
+.chatHistoryError {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.chatHistoryError {
+  color: #c62828;
+  font-weight: 600;
+}
+
+.chatHistoryScroll {
+  flex: 1;
+  min-height: 0;
+  max-height: min(58vh, 480px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.35rem 0.15rem 0.5rem;
+}
+
+.chatHistoryBubble {
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #f0e0cf;
+  background: #fff;
+}
+
+.chatHistoryBubbleReported {
+  border-color: rgba(198, 40, 40, 0.28);
+  background: #fff5f5;
+}
+
+.chatHistoryBubbleOther {
+  background: #fffaf3;
+}
+
+.chatHistoryBubbleTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  color: #8a7460;
+}
+
+.chatHistoryBubbleTop strong {
+  color: #2d1b0e;
+  font-size: 0.8rem;
+}
+
+.chatHistoryBubble p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #3d2a1c;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chatHistoryTag {
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  background: #ffebee;
+  color: #b71c1c;
+  font-weight: 700;
+  font-size: 0.68rem;
+}
+
 .messageModal {
   position: relative;
   width: 100%;
@@ -896,15 +1060,38 @@
 
 .entityCard {
   display: flex;
-  gap: 0.85rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.65rem;
   border: 1px solid #eee;
   background: #fafafa;
   border-radius: 14px;
   padding: 0.75rem;
+  text-align: left;
+  color: inherit;
+}
+
+.entityCardMain {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
   cursor: pointer;
   text-align: left;
   color: inherit;
+  font: inherit;
+}
+
+.entityCardActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.entityCardActions .dangerBtn {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
 }
 
 .entityCard img,

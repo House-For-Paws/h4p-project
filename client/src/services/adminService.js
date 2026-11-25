@@ -18,11 +18,13 @@ export const warnAdminUser = (id, { reason, message } = {}) =>
 export const getAdminReports = () => API.get("/admin/reports");
 export const getAdminPendingReportsCount = () =>
   API.get("/admin/reports/pending-count");
+export const getAdminReportMessages = (id) =>
+  API.get(`/admin/reports/${id}/messages`);
 export const updateAdminReportStatus = (id, status) =>
   API.patch(`/admin/reports/${id}`, { status });
+export const deleteAdminReport = (id) => API.delete(`/admin/reports/${id}`);
 
 // ----- Content moderation -----
-export const getAdminPosts = () => API.get("/admin/posts");
 export const getAdminComments = () => API.get("/admin/comments");
 export const deleteAdminComment = (id) => API.delete(`/admin/comments/${id}`);
 export const getAdminApplications = () => API.get("/admin/applications");

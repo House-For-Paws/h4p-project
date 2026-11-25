@@ -16,3 +16,7 @@ export const markNotificationRead = (id) =>
 
 export const markAllNotificationsRead = () =>
   API.patch("/notifications/read-all");
+
+export const clearNotifications = () => API.delete("/notifications");
+
+export const deleteNotification = (id) => API.delete(`/notifications/${id}`);

@@ -12,8 +12,20 @@ import {
   togglePetFavorite,
 } from "../../services/userService";
 
+function getCurrentUserId() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload?.id != null ? Number(payload.id) : null;
+  } catch {
+    return null;
+  }
+}
+
 const FavoritedPets = () => {
   const navigate = useNavigate();
+  const currentUserId = getCurrentUserId();
   const [favoritedPets, setFavoritedPets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -196,6 +208,9 @@ const FavoritedPets = () => {
             <div className={styles.info}>
               <h3 className={styles.name}>{pet.name}</h3>
               <p className={styles.breed}>{pet.breed}</p>
+              {pet.requestedByMe ? (
+                <span className={styles.requestedBadge}>Requested</span>
+              ) : null}
 
               <div className={styles.details}>
                 <span className={styles.detail}>
@@ -232,7 +247,12 @@ const FavoritedPets = () => {
                 className={styles.adoptBtn}
                 onClick={() => navigate(`/adopt/${pet.id}`)}
               >
-                Adopt {pet.name}
+                {currentUserId != null &&
+                Number(pet.ownerId) === currentUserId
+                  ? "View listing"
+                  : pet.requestedByMe
+                    ? "View request"
+                    : `Adopt ${pet.name}`}
               </button>
             </div>
           </div>

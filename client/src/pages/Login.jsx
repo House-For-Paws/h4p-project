@@ -5,7 +5,7 @@
  * =============================================================================
  */
 import { useEffect, useRef, useState } from "react";
-import { forgotPassword, login } from "../services/authService";
+import { login } from "../services/authService";
 import Navbar from "../Components/layout/Navbar";
 import Footer from "../Components/layout/Footer";
 import styles from "../styles/login.module.css";
@@ -17,17 +17,18 @@ import {
   FaEye,
   FaEyeSlash,
 } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { notifyAuthTokenChanged } from "../utils/authEvents";
 import {
   getLoginFieldError,
   isLoginIdentifierValid,
   isLoginPasswordValid,
-  validateForgotPasswordForm,
   validateLoginForm,
 } from "../utils/loginValidation";
 
 function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const rememberedEmail = localStorage.getItem("h4pRememberedEmail") || "";
 
   const [email, setEmail] = useState(rememberedEmail);
@@ -40,19 +41,10 @@ function Login() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [showForgotModal, setShowForgotModal] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetMessage, setResetMessage] = useState("");
-  const [resetError, setResetError] = useState("");
-  const [resetFieldErrors, setResetFieldErrors] = useState({});
   const [socialMessage, setSocialMessage] = useState("");
 
-  const navigate = useNavigate();
   const passwordInputRef = useRef(null);
   const modalRef = useRef(null);
-  const resetEmailInputRef = useRef(null);
 
   const canSubmit =
     isLoginIdentifierValid(email) &&
@@ -79,39 +71,10 @@ function Login() {
       return undefined;
     }
 
-    requestAnimationFrame(() => resetEmailInputRef.current?.focus());
-
     const handleModalKeys = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
         closeForgotModal();
-        return;
-      }
-
-      if (event.key !== "Tab" || !modalRef.current) {
-        return;
-      }
-
-      const focusable = Array.from(
-        modalRef.current.querySelectorAll(
-          'button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => !el.hasAttribute("disabled"));
-
-      if (!focusable.length) {
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
       }
     };
 
@@ -144,7 +107,15 @@ function Login() {
         localStorage.removeItem("h4pRememberedEmail");
       }
       notifyAuthTokenChanged();
-      navigate("/profile");
+      const from = location.state?.from;
+      const redirectTo =
+        typeof from === "string" &&
+        from.startsWith("/") &&
+        !from.startsWith("/login") &&
+        !from.startsWith("/register")
+          ? from
+          : "/";
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       const data = err.response?.data;
       if (data?.banned) {
@@ -164,61 +135,10 @@ function Login() {
 
   const openForgotModal = () => {
     setShowForgotModal(true);
-    setResetMessage("");
-    setResetError("");
-    setResetFieldErrors({});
-    setResetEmail(email || "");
   };
 
   const closeForgotModal = () => {
     setShowForgotModal(false);
-    setResetLoading(false);
-    setResetMessage("");
-    setResetError("");
-    setResetFieldErrors({});
-    setNewPassword("");
-    setConfirmNewPassword("");
-  };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    const errors = validateForgotPasswordForm({
-      resetEmail,
-      newPassword,
-      confirmNewPassword,
-    });
-    setResetFieldErrors(errors);
-
-    if (Object.keys(errors).length) {
-      setResetError("Please fix the highlighted fields.");
-      return;
-    }
-
-    setResetLoading(true);
-    setResetMessage("");
-    setResetError("");
-
-    try {
-      const res = await forgotPassword({
-        email: resetEmail,
-        newPassword,
-        confirmNewPassword,
-      });
-      setResetMessage(
-        res.data?.message || "Password reset successful. You can now log in.",
-      );
-      setEmail(resetEmail);
-      setNewPassword("");
-      setConfirmNewPassword("");
-      setTimeout(() => {
-        closeForgotModal();
-        passwordInputRef.current?.focus();
-      }, 1600);
-    } catch (err) {
-      setResetError(err.response?.data?.message || "Could not reset password");
-    } finally {
-      setResetLoading(false);
-    }
   };
 
   const handleSocialClick = (provider) => {
@@ -410,7 +330,7 @@ function Login() {
               type="button"
               className={styles.resetClose}
               onClick={closeForgotModal}
-              aria-label="Close reset password dialog"
+              aria-label="Close help dialog"
             >
               ×
             </button>
@@ -418,118 +338,36 @@ function Login() {
               <span className={styles.resetBadge} aria-hidden="true">
                 <FaShieldAlt />
               </span>
-              <h3 id="reset-password-title">Reset your password</h3>
+              <h3 id="reset-password-title">Password help</h3>
             </div>
             <p className={styles.resetSubtitle}>
-              Enter your account email and choose a new password.
+              Email-only password reset is disabled for security. If you can
+              still sign in, change your password under{" "}
+              <strong>Profile → Settings</strong>. Otherwise{" "}
+              <Link to="/contact" onClick={closeForgotModal}>
+                contact support
+              </Link>
+              .
             </p>
-            <form onSubmit={handleResetPassword}>
-              <input
-                ref={resetEmailInputRef}
-                type="email"
-                placeholder="Email address"
-                value={resetEmail}
-                className={
-                  resetFieldErrors.resetEmail ? styles.inputInvalid : undefined
-                }
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setResetEmail(value);
-                  setResetError("");
-                  setResetFieldErrors((prev) => ({
-                    ...prev,
-                    resetEmail: getLoginFieldError("resetEmail", value),
-                  }));
+            <div className={styles.resetActions}>
+              <button
+                type="button"
+                className={styles.resetCancelBtn}
+                onClick={closeForgotModal}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className={styles.resetSubmitBtn}
+                onClick={() => {
+                  closeForgotModal();
+                  navigate("/contact");
                 }}
-                required
-              />
-              {resetFieldErrors.resetEmail && (
-                <p className={styles.fieldError}>{resetFieldErrors.resetEmail}</p>
-              )}
-              <input
-                type="password"
-                placeholder="New password"
-                value={newPassword}
-                className={
-                  resetFieldErrors.newPassword ? styles.inputInvalid : undefined
-                }
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setNewPassword(value);
-                  setResetError("");
-                  setResetFieldErrors((prev) => ({
-                    ...prev,
-                    newPassword: getLoginFieldError("newPassword", value),
-                    confirmNewPassword: getLoginFieldError(
-                      "confirmNewPassword",
-                      confirmNewPassword,
-                      { newPassword: value },
-                    ),
-                  }));
-                }}
-                required
-              />
-              {resetFieldErrors.newPassword && (
-                <p className={styles.fieldError}>
-                  {resetFieldErrors.newPassword}
-                </p>
-              )}
-              <input
-                type="password"
-                placeholder="Confirm new password"
-                value={confirmNewPassword}
-                className={
-                  resetFieldErrors.confirmNewPassword
-                    ? styles.inputInvalid
-                    : undefined
-                }
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setConfirmNewPassword(value);
-                  setResetError("");
-                  setResetFieldErrors((prev) => ({
-                    ...prev,
-                    confirmNewPassword: getLoginFieldError(
-                      "confirmNewPassword",
-                      value,
-                      { newPassword },
-                    ),
-                  }));
-                }}
-                required
-              />
-              {resetFieldErrors.confirmNewPassword && (
-                <p className={styles.fieldError}>
-                  {resetFieldErrors.confirmNewPassword}
-                </p>
-              )}
-              <p className={styles.resetHint}>
-                Use at least 6 characters with letters and numbers.
-              </p>
-
-              {resetError && <p className={styles.resetError}>{resetError}</p>}
-              {resetMessage && (
-                <p className={styles.resetSuccess}>{resetMessage}</p>
-              )}
-
-              <div className={styles.resetActions}>
-                <button
-                  type="button"
-                  className={styles.resetCancelBtn}
-                  onClick={closeForgotModal}
-                  disabled={resetLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.resetSubmitBtn}
-                  disabled={resetLoading}
-                >
-                  {resetLoading ? "Updating..." : "Update password"}
-                </button>
-              </div>
-            </form>
+              >
+                Contact support
+              </button>
+            </div>
           </div>
         </div>
       )}
